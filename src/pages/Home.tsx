@@ -105,7 +105,7 @@ export default function Home() {
                 <img
                   src={event.imageUrl}
                   alt={event.title}
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
+                  className="w-full h-full object-cover"
                 />
                 <div className="absolute top-4 left-4 px-3 py-1 bg-paper-50/90 backdrop-blur-sm rounded-full">
                   <span className="text-sm font-serif font-bold text-vermillion">
