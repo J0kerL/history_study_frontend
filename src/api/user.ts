@@ -1,4 +1,4 @@
-import { apiGet, apiPut, apiPostFormData } from './client'
+import { apiGet, apiPost, apiPut, apiPostFormData } from './client'
 import type { CurrentUser, PageResult, FavoriteVO, Achievement } from '../types'
 
 /** 获取当前登录用户信息 */
@@ -31,6 +31,29 @@ export function updateProfile(data: { username?: string; phone?: string }) {
 /** 修改密码（需提供原密码验证） */
 export function updatePassword(data: { oldPassword: string; newPassword: string; confirmNewPassword: string }) {
   return apiPut<void>('/user/password', data)
+}
+
+/** 查询当前用户是否已收藏指定资源，type: 1=事件, 2=人物 */
+export function hasFavorite(type: number, refId: number) {
+  const query = new URLSearchParams()
+  query.set('type', String(type))
+  query.set('refId', String(refId))
+  return apiGet<boolean>(`/favorite/status?${query.toString()}`)
+}
+
+/** 取消收藏，type: 1=事件, 2=人物 */
+export function removeFavorite(type: number, refId: number) {
+  return apiPost<void>('/favorite/remove', { type, refId })
+}
+
+/** 设置收藏状态（幂等切换），type: 1=事件, 2=人物，返回设置后的实际状态 */
+export function setFavoriteStatus(type: number, refId: number, favorited: boolean) {
+  return apiPost<boolean>('/favorite/set-status', { type, refId, favorited })
+}
+
+/** 统计当前登录用户收藏总数 */
+export function getFavoriteCount() {
+  return apiGet<number>('/favorite/count')
 }
 
 /** 上传头像（multipart/form-data），返回更新后的用户信息 */

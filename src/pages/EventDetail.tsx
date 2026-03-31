@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Share2, Bookmark, ChevronRight } from 'lucide-react'
 import type { EventDetailVO } from '../types'
 import { getEventDetail } from '../api/event'
+import { hasFavorite, setFavoriteStatus } from '../api/user'
 
 const contentVariants = {
   hidden: { opacity: 0 },
@@ -30,6 +31,7 @@ export default function EventDetail() {
   const navigate = useNavigate()
   const [event, setEvent] = useState<EventDetailVO | null>(null)
   const [loading, setLoading] = useState(true)
+  const [favorited, setFavorited] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -38,6 +40,27 @@ export default function EventDetail() {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    const token = localStorage.getItem('accessToken')
+    if (!token) return
+    hasFavorite(1, Number(id))
+      .then(setFavorited)
+      .catch(() => {})
+  }, [id])
+
+  const handleToggleFavorite = () => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      navigate('/login')
+      return
+    }
+    const next = !favorited
+    setFavoriteStatus(1, Number(id), next)
+      .then(setFavorited)
+      .catch(() => {})
+  }
 
   const paragraphs = event?.content?.split('\n\n') || []
 
@@ -58,10 +81,14 @@ export default function EventDetail() {
         </button>
         <div className="flex items-center gap-1">
           <button
+            onClick={handleToggleFavorite}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-ink-lighter/10 active:bg-ink-lighter/20 transition-colors"
-            aria-label="收藏"
+            aria-label={favorited ? '取消收藏' : '收藏'}
           >
-            <Bookmark size={20} className="text-ink" />
+            <Bookmark
+              size={20}
+              className={`transition-colors ${favorited ? 'fill-vermillion text-vermillion' : 'text-ink'}`}
+            />
           </button>
           <button
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-ink-lighter/10 active:bg-ink-lighter/20 transition-colors"

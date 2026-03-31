@@ -2,15 +2,15 @@ import { motion } from 'framer-motion'
 import { Settings, Bookmark, Award, ChevronRight, Flame, BookOpen, Target, LogIn } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getCurrentUser } from '../api/user'
+import { getCurrentUser, getFavoriteCount } from '../api/user'
 import AvatarPreview from '../components/AvatarPreview'
 import type { CurrentUser } from '../types'
 
-/** 菜单项配置（path 用于路由跳转） */
+/** 菜单项配置（count 由组件动态注入） */
 const menuItems = [
-  { icon: Bookmark, label: '我的收藏', count: null, path: '/favorites' },
-  { icon: Award, label: '成就徽章', count: null, path: '/achievements' },
-  { icon: Settings, label: '设置', count: null, path: '/settings' },
+  { icon: Bookmark, label: '我的收藏', count: null as number | null, path: '/favorites' },
+  { icon: Award, label: '成就徽章', count: null as number | null, path: '/achievements' },
+  { icon: Settings, label: '设置', count: null as number | null, path: '/settings' },
 ]
 
 const containerVariants = {
@@ -36,6 +36,7 @@ const itemVariants = {
 export default function Profile() {
   const navigate = useNavigate()
   const [user, setUser] = useState<CurrentUser | null>(null)
+  const [favoriteCount, setFavoriteCount] = useState<number | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(() => {
@@ -44,13 +45,21 @@ export default function Profile() {
       .then((u) => {
         if (mounted) setUser(u)
       })
-      .catch(() => {
-        // 未登录 / 后端未启动时保留为空，页面仍可展示骨架值
+      .catch(() => {})
+    getFavoriteCount()
+      .then((count) => {
+        if (mounted) setFavoriteCount(count)
       })
-    return () => {
-      mounted = false
-    }
+      .catch(() => {})
+    return () => { mounted = false }
   }, [])
+
+  const menuData = useMemo(() => {
+    return menuItems.map((item) => ({
+      ...item,
+      count: item.label === '我的收藏' ? favoriteCount : item.count,
+    }))
+  }, [favoriteCount])
 
   const stats = useMemo(() => {
     const streakDays = user?.streakDays ?? 0
@@ -188,7 +197,7 @@ export default function Profile() {
           variants={itemVariants}
           className="bg-paper-50 rounded-3xl border border-ink-lighter/10 overflow-hidden divide-y divide-ink-lighter/10"
         >
-          {menuItems.map((item, index) => (
+          {menuData.map((item, index) => (
             <button
               key={index}
               className="w-full flex items-center justify-between px-5 py-4 hover:bg-paper-200/50 active:bg-paper-200 transition-colors"

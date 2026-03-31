@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Trash2, Bookmark, BookOpen, User, LogIn } from 'lucide-react'
-import { getFavorites } from '../api/user'
+import { getFavorites, removeFavorite } from '../api/user'
 import type { FavoriteVO } from '../types'
 
 /** 判断当前是否已登录（本地有 accessToken） */
@@ -90,10 +90,14 @@ export default function Favorites() {
     loadData(1, filter, true)
   }, [filter, loadData, notLoggedIn])
 
-  /** 仅前端删除：从列表移除该项 */
-  function handleDelete(id: number) {
-    setItems((prev) => prev.filter((item) => item.id !== id))
-    setTotal((t) => Math.max(0, t - 1))
+  /** 调用后端取消收藏，成功后从列表移除 */
+  function handleDelete(item: FavoriteVO) {
+    removeFavorite(item.type, item.refId)
+      .then(() => {
+        setItems((prev) => prev.filter((i) => i.id !== item.id))
+        setTotal((t) => Math.max(0, t - 1))
+      })
+      .catch(() => {})
   }
 
   /** 加载更多 */
@@ -222,11 +226,14 @@ export default function Favorites() {
           {items.map((item, idx) => (
             <motion.div
               key={item.id}
-              className="bg-paper-50 rounded-2xl border border-ink-lighter/10 overflow-hidden"
+              className="bg-paper-50 rounded-2xl border border-ink-lighter/10 overflow-hidden cursor-pointer"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, x: -40, scale: 0.95 }}
               transition={{ duration: 0.3, delay: idx * 0.04 }}
+              onClick={() => {
+                if (item.type === 1) navigate(`/event/${item.refId}`)
+              }}
             >
               <div className="flex gap-4 p-4">
                 {/* 图片 */}
@@ -266,7 +273,10 @@ export default function Favorites() {
 
                 {/* 删除按钮 */}
                 <button
-                  onClick={() => handleDelete(item.id)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDelete(item)
+                  }}
                   className="self-start mt-1 w-8 h-8 flex items-center justify-center rounded-full hover:bg-vermillion/10 active:bg-vermillion/20 text-ink-lighter hover:text-vermillion transition-colors shrink-0"
                   aria-label="删除收藏"
                 >

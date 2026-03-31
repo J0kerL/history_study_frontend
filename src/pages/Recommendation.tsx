@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Bookmark, Share2, Clock, MapPin } from 'lucide-react'
 import type { RecommendedContent } from '../types'
+import { hasFavorite, setFavoriteStatus } from '../api/user'
 
 const content: RecommendedContent = {
   id: '1',
@@ -37,6 +40,29 @@ const itemVariants = {
 }
 
 export default function Recommendation() {
+  const navigate = useNavigate()
+  const [favorited, setFavorited] = useState(false)
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) return
+    hasFavorite(2, Number(content.id))
+      .then(setFavorited)
+      .catch(() => {})
+  }, [])
+
+  const handleToggleFavorite = () => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      navigate('/login')
+      return
+    }
+    const next = !favorited
+    setFavoriteStatus(2, Number(content.id), next)
+      .then(setFavorited)
+      .catch(() => {})
+  }
+
   const paragraphs = content.body.split('\n\n')
 
   return (
@@ -61,8 +87,15 @@ export default function Recommendation() {
             </span>
           </div>
           <div className="flex gap-3">
-            <button className="w-10 h-10 flex items-center justify-center bg-ink/30 backdrop-blur-sm rounded-full hover:bg-ink/40 active:bg-ink/50 transition-colors">
-              <Bookmark size={20} className="text-paper-50" />
+            <button
+              onClick={handleToggleFavorite}
+              className="w-10 h-10 flex items-center justify-center bg-ink/30 backdrop-blur-sm rounded-full hover:bg-ink/40 active:bg-ink/50 transition-colors"
+              aria-label={favorited ? '取消收藏' : '收藏'}
+            >
+              <Bookmark
+                size={20}
+                className={`transition-colors ${favorited ? 'fill-vermillion text-vermillion' : 'text-paper-50'}`}
+              />
             </button>
             <button className="w-10 h-10 flex items-center justify-center bg-ink/30 backdrop-blur-sm rounded-full hover:bg-ink/40 active:bg-ink/50 transition-colors">
               <Share2 size={20} className="text-paper-50" />
@@ -114,7 +147,7 @@ export default function Recommendation() {
             >
               {paragraph}
             </motion.p>
-          ))}
+            ))}
         </div>
       </motion.div>
 
