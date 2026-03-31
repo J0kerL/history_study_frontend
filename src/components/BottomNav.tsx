@@ -3,7 +3,7 @@ import { Calendar, BookOpen, Compass, Search, User } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const navItems = [
-  { path: '/', icon: Calendar, label: '今天' },
+  { path: '/', icon: Calendar, label: '史今' },
   { path: '/quiz', icon: BookOpen, label: '问答' },
   { path: '/recommendation', icon: Compass, label: '推荐' },
   { path: '/search', icon: Search, label: '搜索' },

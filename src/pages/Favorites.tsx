@@ -186,7 +186,7 @@ export default function Favorites() {
         )}
 
         {/* 错误提示 */}
-        {error && !loading && (
+        {error && !loading && notLoggedIn && (
           <motion.div
             className="text-center py-12"
             initial={{ opacity: 0 }}
@@ -194,10 +194,10 @@ export default function Favorites() {
           >
             <p className="text-sm text-ink-light mb-3">{error}</p>
             <button
-              onClick={() => loadData(1, filter, true)}
-              className="text-sm text-vermillion font-medium"
+              onClick={() => navigate('/login')}
+              className="px-6 py-2.5 rounded-full bg-vermillion text-white text-sm font-medium hover:bg-vermillion-dark active:opacity-80 transition-colors"
             >
-              重新加载
+              去登录
             </button>
           </motion.div>
         )}

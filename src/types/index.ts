@@ -66,23 +66,28 @@ export interface RegisterRequest {
 
 // ==================== 历史事件类型 ====================
 
-// 历史事件类型
-export interface HistoricalEvent {
-  id: string
-  year: string
+/** 事件摘要（对应后端 EventSummaryVO） */
+export interface EventSummaryVO {
+  id: number
+  year: number
   title: string
-  description?: string
-  image?: string
-  date?: string
-  content?: string
-  related?: RelatedEvent[]
+  summary: string
+  imageUrl: string
 }
 
-// 相关事件
-export interface RelatedEvent {
-  id: string
+/** 事件详情（对应后端 EventDetailVO） */
+export interface EventDetailVO {
+  id: number
   title: string
-  year: string
+  year: number
+  month: number
+  day: number
+  summary: string
+  content: string
+  imageUrl: string
+  tags: string
+  source: number
+  relatedEvents: EventSummaryVO[]
 }
 
 // 问答题目
