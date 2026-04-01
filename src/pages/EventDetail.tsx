@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Share2, Bookmark, ChevronRight } from 'lucide-react'
-import type { EventDetailVO } from '../types'
-import { getEventDetail } from '../api/event'
+import { ArrowLeft, Share2, Bookmark, ChevronRight, Loader2, AlertTriangle } from 'lucide-react'
 import { setFavoriteStatus } from '../api/user'
 import { useAuth } from '../contexts/AuthContext'
 import { useFavorites, loadFavoriteStatus } from '../contexts/FavoritesContext'
 import Toast, { useToast } from '../components/Toast'
+import { useEventDetail } from '../hooks/useEventDetailPolling'
 
 const contentVariants = {
   hidden: { opacity: 0 },
@@ -36,20 +35,12 @@ export default function EventDetail() {
   const { isFavorited, updateFavoriteStatus } = useFavorites()
   const { message, type, showToast, dismissToast } = useToast()
 
-  const [event, setEvent] = useState<EventDetailVO | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [favoriting, setFavoriting] = useState(false)
-
   const eventId = id ? Number(id) : 0
   const favorited = isFavorited(1, eventId)
+  const [favoriting, setFavoriting] = useState(false)
 
-  useEffect(() => {
-    if (!id) return
-    getEventDetail(Number(id))
-      .then(setEvent)
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [id])
+  // 事件详情 + 延伸阅读轮询
+  const { event, relatedEvents, relatedState } = useEventDetail(id ? Number(id) : undefined)
 
   // 加载收藏状态
   useEffect(() => {
@@ -66,21 +57,18 @@ export default function EventDetail() {
       navigate('/login')
       return
     }
-    if (favoriting) return // 防止重复点击
+    if (favoriting) return
 
     const next = !favorited
     setFavoriting(true)
 
-    // 乐观更新 UI
     updateFavoriteStatus(1, eventId, next)
 
     try {
       const actualStatus = await setFavoriteStatus(1, eventId, next)
-      // 同步后端返回的实际状态
       updateFavoriteStatus(1, eventId, actualStatus)
       showToast(actualStatus ? '已收藏' : '已取消收藏', 'success')
     } catch (err) {
-      // 失败时回滚
       updateFavoriteStatus(1, eventId, favorited)
       showToast(err instanceof Error ? err.message : '操作失败，请重试', 'error')
     } finally {
@@ -138,15 +126,9 @@ export default function EventDetail() {
         </div>
       </motion.header>
 
-      {loading && (
+      {!event && (
         <div className="flex justify-center py-40">
           <span className="text-ink-light">加载中...</span>
-        </div>
-      )}
-
-      {!loading && !event && (
-        <div className="flex justify-center py-40">
-          <span className="text-ink-light">事件不存在</span>
         </div>
       )}
 
@@ -194,16 +176,28 @@ export default function EventDetail() {
               </motion.p>
             ))}
 
-            {event.relatedEvents && event.relatedEvents.length > 0 && (
-              <motion.div
-                className="mt-12 pt-8 border-t border-ink-lighter/20"
-                variants={itemVariants}
-              >
-                <h2 className="text-lg font-serif font-bold text-ink mb-4">
-                  延伸阅读
-                </h2>
+            {/* 延伸阅读 */}
+            <motion.div
+              className="mt-12 pt-8 border-t border-ink-lighter/20"
+              variants={itemVariants}
+            >
+              <h2 className="text-lg font-serif font-bold text-ink mb-4">
+                延伸阅读
+              </h2>
+
+              {/* 生成中 */}
+              {relatedState === 'generating' && (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2 size={24} className="text-vermillion animate-spin mb-3" />
+                  <p className="text-ink-light text-sm font-medium">相关推荐生成中</p>
+                  <p className="text-ink-lighter text-xs mt-1">AI 正在为你整理相关历史事件...</p>
+                </div>
+              )}
+
+              {/* 有数据 */}
+              {relatedState === 'ready' && relatedEvents.length > 0 && (
                 <div className="space-y-3">
-                  {event.relatedEvents.map((item) => (
+                  {relatedEvents.map((item) => (
                     <button
                       key={item.id}
                       className="w-full flex items-center justify-between p-4 bg-paper-50 rounded-xl border border-ink-lighter/10 hover:border-vermillion/30 active:bg-paper-200 transition-colors"
@@ -221,8 +215,21 @@ export default function EventDetail() {
                     </button>
                   ))}
                 </div>
-              </motion.div>
-            )}
+              )}
+
+              {/* 无数据 */}
+              {relatedState === 'empty' && (
+                <p className="text-sm text-ink-light text-center py-4">暂无相关推荐</p>
+              )}
+
+              {/* 生成失败 */}
+              {relatedState === 'failed' && (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <AlertTriangle size={24} className="text-red-400 mb-3" />
+                  <p className="text-ink-light text-sm font-medium">相关推荐生成失败</p>
+                </div>
+              )}
+            </motion.div>
           </motion.div>
         </>
       )}

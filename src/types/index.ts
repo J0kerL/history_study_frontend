@@ -82,6 +82,16 @@ export interface EventSummaryVO {
   imageUrl: string
 }
 
+/** 今日事件接口响应（后端返回 data 结构） */
+export interface TodayEventsResponse {
+  /** 事件列表 */
+  events: EventSummaryVO[]
+  /** 生成状态：ready=已就绪，generating=生成中 */
+  generationStatus: 'ready' | 'generating'
+  /** 生成提示信息 */
+  generationMessage?: string
+}
+
 /** 事件详情（对应后端 EventDetailVO） */
 export interface EventDetailVO {
   id: number
@@ -95,6 +105,10 @@ export interface EventDetailVO {
   tags: string
   source: number
   relatedEvents: EventSummaryVO[]
+  /** 关联事件生成状态：ready=已就绪，generating=生成中 */
+  relatedEventsStatus?: 'ready' | 'generating'
+  /** 关联事件生成提示信息 */
+  relatedEventsMessage?: string
 }
 
 // 问答题目
