@@ -1,5 +1,8 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
+import { AuthProvider } from './contexts/AuthContext'
+import { FavoritesProvider } from './contexts/FavoritesContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import Layout from './components/Layout'
 import Home from './pages/Home'
 import EventDetail from './pages/EventDetail'
@@ -40,9 +43,15 @@ function AnimatedRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <Layout>
-        <AnimatedRoutes />
-      </Layout>
+      <ErrorBoundary>
+        <AuthProvider>
+          <FavoritesProvider>
+            <Layout>
+              <AnimatedRoutes />
+            </Layout>
+          </FavoritesProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }

@@ -4,11 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Award, Star, LogIn } from 'lucide-react'
 import { getAchievements } from '../api/user'
 import type { Achievement } from '../types'
-
-/** 判断当前是否已登录 */
-function isLoggedIn() {
-  return !!localStorage.getItem('accessToken')
-}
+import { useAuth } from '../contexts/AuthContext'
 
 const PAGE_SIZE = 20
 
@@ -36,6 +32,7 @@ function SkeletonCard() {
 
 export default function Achievements() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
 
   const [items, setItems] = useState<Achievement[]>([])
   const [pageNum, setPageNum] = useState(1)
@@ -47,7 +44,7 @@ export default function Achievements() {
   const [error, setError] = useState('')
 
   /** 未登录标志 */
-  const [notLoggedIn] = useState(!isLoggedIn())
+  const notLoggedIn = !isAuthenticated
 
   const loadData = useCallback(async (page: number, reset: boolean) => {
     if (reset) {

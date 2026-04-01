@@ -2,8 +2,9 @@ import { motion } from 'framer-motion'
 import { Settings, Bookmark, Award, ChevronRight, Flame, BookOpen, Target, LogIn } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getCurrentUser, getFavoriteCount } from '../api/user'
+import { getCurrentUser } from '../api/user'
 import AvatarPreview from '../components/AvatarPreview'
+import { useFavorites } from '../contexts/FavoritesContext'
 import type { CurrentUser } from '../types'
 
 /** 菜单项配置（count 由组件动态注入） */
@@ -35,8 +36,8 @@ const itemVariants = {
 
 export default function Profile() {
   const navigate = useNavigate()
+  const { count: favoriteCount, refreshCount } = useFavorites()
   const [user, setUser] = useState<CurrentUser | null>(null)
-  const [favoriteCount, setFavoriteCount] = useState<number | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(() => {
@@ -46,13 +47,9 @@ export default function Profile() {
         if (mounted) setUser(u)
       })
       .catch(() => {})
-    getFavoriteCount()
-      .then((count) => {
-        if (mounted) setFavoriteCount(count)
-      })
-      .catch(() => {})
+    refreshCount()
     return () => { mounted = false }
-  }, [])
+  }, [refreshCount])
 
   const menuData = useMemo(() => {
     return menuItems.map((item) => ({

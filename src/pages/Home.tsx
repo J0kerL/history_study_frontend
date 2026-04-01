@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronRight, LogIn, X } from 'lucide-react'
 import type { EventSummaryVO } from '../types'
 import { getTodayEvents } from '../api/event'
+import { useAuth } from '../contexts/AuthContext'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -29,13 +30,9 @@ const itemVariants = {
   }
 }
 
-/** 判断当前是否已登录 */
-function isLoggedIn() {
-  return !!localStorage.getItem('accessToken')
-}
-
 export default function Home() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const [events, setEvents] = useState<EventSummaryVO[]>([])
   const [loading, setLoading] = useState(true)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
@@ -51,7 +48,7 @@ export default function Home() {
   }, [])
 
   function handleCardClick(eventId: number) {
-    if (isLoggedIn()) {
+    if (isAuthenticated) {
       navigate(`/event/${eventId}`)
     } else {
       setShowLoginPrompt(true)

@@ -64,6 +64,13 @@ export interface RegisterRequest {
   verificationCode: string
 }
 
+/** 修改密码请求（对应后端 /user/password 接口） */
+export interface UpdatePasswordRequest {
+  oldPassword: string
+  newPassword: string
+  confirmNewPassword: string
+}
+
 // ==================== 历史事件类型 ====================
 
 /** 事件摘要（对应后端 EventSummaryVO） */

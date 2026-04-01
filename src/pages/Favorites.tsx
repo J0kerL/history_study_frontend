@@ -4,11 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Trash2, Bookmark, BookOpen, User, LogIn } from 'lucide-react'
 import { getFavorites, removeFavorite } from '../api/user'
 import type { FavoriteVO } from '../types'
-
-/** 判断当前是否已登录（本地有 accessToken） */
-function isLoggedIn() {
-  return !!localStorage.getItem('accessToken')
-}
+import { useAuth } from '../contexts/AuthContext'
+import { useFavorites } from '../contexts/FavoritesContext'
+import Toast, { useToast } from '../components/Toast'
 
 /** 筛选类型：0=全部，1=事件，2=人物 */
 type FilterType = 0 | 1 | 2
@@ -37,6 +35,9 @@ function SkeletonCard() {
 
 export default function Favorites() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
+  const { refreshCount, removeFavoriteItem } = useFavorites()
+  const { message, type, showToast, dismissToast } = useToast()
 
   const [filter, setFilter] = useState<FilterType>(0)
   const [items, setItems] = useState<FavoriteVO[]>([])
@@ -49,13 +50,13 @@ export default function Favorites() {
   const [error, setError] = useState('')
 
   /** 未登录标志：不发请求，直接展示提示 */
-  const [notLoggedIn] = useState(!isLoggedIn())
+  const notLoggedIn = !isAuthenticated
 
   /**
    * 加载指定页数据。
    * reset=true 时清空列表重新加载（切换筛选或首次进入时）。
    */
-  const loadData = useCallback(async (page: number, type: FilterType, reset: boolean) => {
+  const loadData = useCallback(async (page: number, typeFilter: FilterType, reset: boolean) => {
     if (reset) {
       setLoading(true)
       setError('')
@@ -68,7 +69,7 @@ export default function Favorites() {
         pageNum: page,
         pageSize: PAGE_SIZE,
       }
-      if (type !== 0) params.type = type
+      if (typeFilter !== 0) params.type = typeFilter
 
       const result = await getFavorites(params)
       setItems((prev) => reset ? result.list : [...prev, ...result.list])
@@ -88,7 +89,8 @@ export default function Favorites() {
     if (notLoggedIn) return
     setPageNum(1)
     loadData(1, filter, true)
-  }, [filter, loadData, notLoggedIn])
+    refreshCount()
+  }, [filter, loadData, notLoggedIn, refreshCount])
 
   /** 调用后端取消收藏，成功后从列表移除 */
   function handleDelete(item: FavoriteVO) {
@@ -96,8 +98,12 @@ export default function Favorites() {
       .then(() => {
         setItems((prev) => prev.filter((i) => i.id !== item.id))
         setTotal((t) => Math.max(0, t - 1))
+        removeFavoriteItem()
+        showToast('已取消收藏', 'success')
       })
-      .catch(() => {})
+      .catch(() => {
+        showToast('取消收藏失败，请重试', 'error')
+      })
   }
 
   /** 加载更多 */
@@ -109,6 +115,9 @@ export default function Favorites() {
 
   return (
     <div className="min-h-screen bg-paper-100">
+      {/* Toast */}
+      <Toast message={message} type={type} onDismiss={dismissToast} />
+
       {/* 顶部标题栏 */}
       <motion.header
         className="px-4 pt-10 pb-4 flex items-center gap-3"
@@ -190,7 +199,7 @@ export default function Favorites() {
         )}
 
         {/* 错误提示 */}
-        {error && !loading && notLoggedIn && (
+        {error && !loading && !notLoggedIn && (
           <motion.div
             className="text-center py-12"
             initial={{ opacity: 0 }}
@@ -198,10 +207,10 @@ export default function Favorites() {
           >
             <p className="text-sm text-ink-light mb-3">{error}</p>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => loadData(1, filter, true)}
               className="px-6 py-2.5 rounded-full bg-vermillion text-white text-sm font-medium hover:bg-vermillion-dark active:opacity-80 transition-colors"
             >
-              去登录
+              重新加载
             </button>
           </motion.div>
         )}

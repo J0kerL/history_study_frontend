@@ -2,33 +2,22 @@ import { useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, ArrowLeft, User, Lock, Phone, ShieldCheck, CheckCircle2, MessageSquare, Copy, Check } from 'lucide-react'
-import { register, sendVerificationCode } from '../api/auth'
-
-/** 手机号格式校验 */
-const PHONE_REG = /^\d{11}$/
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { sendVerificationCode } from '../api/auth'
+import { useAuth } from '../contexts/AuthContext'
+import { registerSchema, type RegisterFormData } from '../utils/validation'
 
 export default function Register() {
   const navigate = useNavigate()
-
-  // 表单字段
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [phone, setPhone] = useState('')
-  const [verificationCode, setVerificationCode] = useState('')
-
-  // 密码可见
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const { register: apiRegister } = useAuth()
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // 验证码倒计时
   const [countdown, setCountdown] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // 状态
-  const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
-  const [error, setError] = useState('')
 
   // 验证码弹窗（后端返回验证码时展示）
   const [codeModal, setCodeModal] = useState<{ code: string; expireMin: number } | null>(null)
@@ -37,22 +26,45 @@ export default function Register() {
   // 注册成功弹窗
   const [successModal, setSuccessModal] = useState(false)
 
+  // react-hook-form 表单
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setError,
+    clearErrors,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      username: '',
+      password: '',
+      confirmPassword: '',
+      phone: '',
+      verificationCode: '',
+    },
+  })
+
+  const phone = watch('phone')
+
+  // 独立管理密码可见性
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+
   /** 发送验证码 */
   async function handleSendCode() {
-    setError('')
-    if (!PHONE_REG.test(phone)) {
-      setError('请输入正确的 11 位手机号')
+    clearErrors('phone')
+    if (!/^\d{11}$/.test(phone)) {
+      setError('phone', { message: '请输入正确的 11 位手机号' })
       return
     }
     setSending(true)
     try {
       const result = await sendVerificationCode(phone)
-      // 展示验证码弹窗，过期时间转换为分钟
       setCodeModal({
         code: result['验证码为'],
         expireMin: Math.round(result['过期时间'] / 60),
       })
-      // 开始 60s 倒计时
       setCountdown(60)
       timerRef.current = setInterval(() => {
         setCountdown((c) => {
@@ -64,41 +76,28 @@ export default function Register() {
         })
       }, 1000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '发送失败，请稍后重试')
+      setError('phone', {
+        message: err instanceof Error ? err.message : '发送失败，请稍后重试',
+      })
     } finally {
       setSending(false)
     }
   }
 
   /** 提交注册 */
-  async function handleRegister(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-
-    // 前端校验
-    if (!username.trim()) { setError('请输入用户名'); return }
-    if (username.trim().length > 20) { setError('用户名不能超过 20 个字符'); return }
-    if (!password) { setError('请输入密码'); return }
-    if (password.length < 6 || password.length > 20) { setError('密码长度应在 6～20 个字符之间'); return }
-    if (password !== confirmPassword) { setError('两次输入的密码不一致'); return }
-    if (!PHONE_REG.test(phone)) { setError('请输入正确的 11 位手机号'); return }
-    if (!verificationCode.trim()) { setError('请输入验证码'); return }
-
-    setLoading(true)
+  async function onSubmit(data: RegisterFormData) {
     try {
-      await register({
-        username: username.trim(),
-        password,
-        confirmPassword,
-        phone,
-        verificationCode: verificationCode.trim(),
+      await apiRegister({
+        username: data.username.trim(),
+        password: data.password,
+        confirmPassword: data.confirmPassword,
+        phone: data.phone,
+        verificationCode: data.verificationCode.trim(),
       })
-      // 注册成功，展示成功弹窗
       setSuccessModal(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '注册失败，请稍后重试')
-    } finally {
-      setLoading(false)
+      const message = err instanceof Error ? err.message : '注册失败，请稍后重试'
+      setError('root', { message })
     }
   }
 
@@ -136,21 +135,21 @@ export default function Register() {
           <p className="text-sm text-ink-light">加入史学，探索历史的长河</p>
         </motion.div>
 
-        {/* 错误提示 */}
-        {error && (
+        {/* 表单级错误提示 */}
+        {errors.root && (
           <motion.div
             className="mb-5 px-4 py-3 rounded-xl bg-vermillion/10 border border-vermillion/20 text-sm text-vermillion"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.2 }}
           >
-            {error}
+            {errors.root.message}
           </motion.div>
         )}
 
         {/* 表单 */}
         <motion.form
-          onSubmit={handleRegister}
+          onSubmit={handleSubmit(onSubmit)}
           className="space-y-4"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -162,13 +161,17 @@ export default function Register() {
             <input
               type="text"
               placeholder="用户名（1-20 个字符）"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              {...register('username')}
               autoComplete="username"
               maxLength={20}
-              className="flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none"
+              className={`flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none ${
+                errors.username ? 'text-vermillion' : ''
+              }`}
             />
           </div>
+          {errors.username && (
+            <p className="text-xs text-vermillion -mt-2 ml-4">{errors.username.message}</p>
+          )}
 
           {/* 密码 */}
           <div className="bg-paper-50 rounded-2xl border border-ink-lighter/15 flex items-center px-4 gap-3 focus-within:border-vermillion/40 transition-colors">
@@ -176,11 +179,12 @@ export default function Register() {
             <input
               type={showPassword ? 'text' : 'password'}
               placeholder="密码（6-20 个字符）"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              {...register('password')}
               autoComplete="new-password"
               maxLength={20}
-              className="flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none"
+              className={`flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none ${
+                errors.password ? 'text-vermillion' : ''
+              }`}
             />
             <button
               type="button"
@@ -191,6 +195,9 @@ export default function Register() {
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          {errors.password && (
+            <p className="text-xs text-vermillion -mt-2 ml-4">{errors.password.message}</p>
+          )}
 
           {/* 确认密码 */}
           <div className="bg-paper-50 rounded-2xl border border-ink-lighter/15 flex items-center px-4 gap-3 focus-within:border-vermillion/40 transition-colors">
@@ -198,11 +205,12 @@ export default function Register() {
             <input
               type={showConfirm ? 'text' : 'password'}
               placeholder="确认密码"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              {...register('confirmPassword')}
               autoComplete="new-password"
               maxLength={20}
-              className="flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none"
+              className={`flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none ${
+                errors.confirmPassword ? 'text-vermillion' : ''
+              }`}
             />
             <button
               type="button"
@@ -213,6 +221,9 @@ export default function Register() {
               {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          {errors.confirmPassword && (
+            <p className="text-xs text-vermillion -mt-2 ml-4">{errors.confirmPassword.message}</p>
+          )}
 
           {/* 手机号 + 发送验证码 */}
           <div className="bg-paper-50 rounded-2xl border border-ink-lighter/15 flex items-center px-4 gap-3 focus-within:border-vermillion/40 transition-colors">
@@ -220,11 +231,16 @@ export default function Register() {
             <input
               type="tel"
               placeholder="手机号"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              {...register('phone', {
+                onChange: (e) => {
+                  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11)
+                },
+              })}
               autoComplete="tel"
               inputMode="numeric"
-              className="flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none"
+              className={`flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none ${
+                errors.phone ? 'text-vermillion' : ''
+              }`}
             />
             <button
               type="button"
@@ -235,6 +251,9 @@ export default function Register() {
               {sending ? '发送中…' : countdown > 0 ? `${countdown}s 后重试` : '发送验证码'}
             </button>
           </div>
+          {errors.phone && (
+            <p className="text-xs text-vermillion -mt-2 ml-4">{errors.phone.message}</p>
+          )}
 
           {/* 验证码 */}
           <div className="bg-paper-50 rounded-2xl border border-ink-lighter/15 flex items-center px-4 gap-3 focus-within:border-vermillion/40 transition-colors">
@@ -242,20 +261,28 @@ export default function Register() {
             <input
               type="text"
               placeholder="短信验证码"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              {...register('verificationCode', {
+                onChange: (e) => {
+                  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6)
+                },
+              })}
               inputMode="numeric"
-              className="flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none"
+              className={`flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none ${
+                errors.verificationCode ? 'text-vermillion' : ''
+              }`}
             />
           </div>
+          {errors.verificationCode && (
+            <p className="text-xs text-vermillion -mt-2 ml-4">{errors.verificationCode.message}</p>
+          )}
 
           {/* 注册按钮 */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitting}
             className="w-full py-4 rounded-2xl bg-vermillion text-white font-medium text-base hover:bg-vermillion-dark active:opacity-90 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
           >
-            {loading ? (
+            {isSubmitting ? (
               <>
                 <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 注册中…
@@ -292,12 +319,10 @@ export default function Register() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            {/* 遮罩 */}
             <div
               className="absolute inset-0 bg-ink/30 backdrop-blur-sm"
               onClick={() => setCodeModal(null)}
             />
-            {/* 弹窗卡片 */}
             <motion.div
               className="relative bg-paper-50 rounded-3xl p-6 w-full max-w-xs shadow-card-hover text-center"
               initial={{ scale: 0.9, y: 20 }}
@@ -311,7 +336,6 @@ export default function Register() {
               <h3 className="text-lg font-serif font-bold text-ink mb-1">验证码</h3>
               <p className="text-xs text-ink-light mb-4">已发送至手机 {phone}</p>
 
-              {/* 验证码展示 + 复制按钮 */}
               <div className="bg-paper-100 rounded-2xl py-4 px-6 mb-3 border border-ink-lighter/10 flex items-center justify-between gap-3">
                 <span className="text-3xl font-serif font-bold text-vermillion tracking-[0.3em]">
                   {codeModal.code}
@@ -357,9 +381,7 @@ export default function Register() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            {/* 遮罩（不可点击关闭，强制操作） */}
             <div className="absolute inset-0 bg-ink/30 backdrop-blur-sm" />
-            {/* 弹窗卡片 */}
             <motion.div
               className="relative bg-paper-50 rounded-3xl p-6 w-full max-w-xs shadow-card-hover text-center"
               initial={{ scale: 0.9, y: 20 }}

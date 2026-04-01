@@ -2,44 +2,39 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, ArrowLeft, User, Lock } from 'lucide-react'
-import { login } from '../api/auth'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useAuth } from '../contexts/AuthContext'
+import { loginSchema, type LoginFormData } from '../utils/validation'
 
 export default function Login() {
   const navigate = useNavigate()
-
-  // 表单字段
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const { login } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
 
-  // 状态
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { username: '', password: '' },
+  })
 
   /** 提交登录 */
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-
-    // 前端基础校验
-    if (!username.trim()) {
-      setError('请输入用户名')
-      return
-    }
-    if (!password) {
-      setError('请输入密码')
-      return
-    }
-
-    setLoading(true)
+  async function onSubmit(data: LoginFormData) {
     try {
-      await login({ username: username.trim(), password })
-      // 登录成功，跳转到个人中心
+      await login({ username: data.username.trim(), password: data.password })
       navigate('/profile', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : '登录失败，请稍后重试')
-    } finally {
-      setLoading(false)
+      const message = err instanceof Error ? err.message : '登录失败，请稍后重试'
+      // 将后端错误映射到表单字段
+      if (message.includes('用户名') || message.includes('密码')) {
+        setError('root', { message })
+      } else {
+        setError('root', { message })
+      }
     }
   }
 
@@ -77,21 +72,21 @@ export default function Login() {
           <p className="text-sm text-ink-light">登录后探索更多历史知识</p>
         </motion.div>
 
-        {/* 错误提示 */}
-        {error && (
+        {/* 表单级错误提示 */}
+        {errors.root && (
           <motion.div
             className="mb-5 px-4 py-3 rounded-xl bg-vermillion/10 border border-vermillion/20 text-sm text-vermillion"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.2 }}
           >
-            {error}
+            {errors.root.message}
           </motion.div>
         )}
 
         {/* 表单 */}
         <motion.form
-          onSubmit={handleLogin}
+          onSubmit={handleSubmit(onSubmit)}
           className="space-y-4"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -103,12 +98,16 @@ export default function Login() {
             <input
               type="text"
               placeholder="用户名"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              {...register('username')}
               autoComplete="username"
-              className="flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none"
+              className={`flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none ${
+                errors.username ? 'text-vermillion' : ''
+              }`}
             />
           </div>
+          {errors.username && (
+            <p className="text-xs text-vermillion -mt-2 ml-4">{errors.username.message}</p>
+          )}
 
           {/* 密码 */}
           <div className="bg-paper-50 rounded-2xl border border-ink-lighter/15 flex items-center px-4 gap-3 focus-within:border-vermillion/40 transition-colors">
@@ -116,10 +115,11 @@ export default function Login() {
             <input
               type={showPassword ? 'text' : 'password'}
               placeholder="密码"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              {...register('password')}
               autoComplete="current-password"
-              className="flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none"
+              className={`flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none ${
+                errors.password ? 'text-vermillion' : ''
+              }`}
             />
             <button
               type="button"
@@ -130,14 +130,17 @@ export default function Login() {
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          {errors.password && (
+            <p className="text-xs text-vermillion -mt-2 ml-4">{errors.password.message}</p>
+          )}
 
           {/* 登录按钮 */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitting}
             className="w-full py-4 rounded-2xl bg-vermillion text-white font-medium text-base hover:bg-vermillion-dark active:opacity-90 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
           >
-            {loading ? (
+            {isSubmitting ? (
               <>
                 <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 登录中…

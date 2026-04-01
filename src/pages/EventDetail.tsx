@@ -4,7 +4,10 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Share2, Bookmark, ChevronRight } from 'lucide-react'
 import type { EventDetailVO } from '../types'
 import { getEventDetail } from '../api/event'
-import { hasFavorite, setFavoriteStatus } from '../api/user'
+import { setFavoriteStatus } from '../api/user'
+import { useAuth } from '../contexts/AuthContext'
+import { useFavorites, loadFavoriteStatus } from '../contexts/FavoritesContext'
+import Toast, { useToast } from '../components/Toast'
 
 const contentVariants = {
   hidden: { opacity: 0 },
@@ -29,9 +32,16 @@ const itemVariants = {
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
+  const { isFavorited, updateFavoriteStatus } = useFavorites()
+  const { message, type, showToast, dismissToast } = useToast()
+
   const [event, setEvent] = useState<EventDetailVO | null>(null)
   const [loading, setLoading] = useState(true)
-  const [favorited, setFavorited] = useState(false)
+  const [favoriting, setFavoriting] = useState(false)
+
+  const eventId = id ? Number(id) : 0
+  const favorited = isFavorited(1, eventId)
 
   useEffect(() => {
     if (!id) return
@@ -41,31 +51,50 @@ export default function EventDetail() {
       .finally(() => setLoading(false))
   }, [id])
 
+  // 加载收藏状态
   useEffect(() => {
-    if (!id) return
-    const token = localStorage.getItem('accessToken')
-    if (!token) return
-    hasFavorite(1, Number(id))
-      .then(setFavorited)
+    if (!id || !isAuthenticated) return
+    loadFavoriteStatus(1, Number(id))
+      .then((status) => {
+        updateFavoriteStatus(1, Number(id), status)
+      })
       .catch(() => {})
-  }, [id])
+  }, [id, isAuthenticated, updateFavoriteStatus])
 
-  const handleToggleFavorite = () => {
-    const token = localStorage.getItem('accessToken')
-    if (!token) {
+  const handleToggleFavorite = async () => {
+    if (!isAuthenticated) {
       navigate('/login')
       return
     }
+    if (favoriting) return // 防止重复点击
+
     const next = !favorited
-    setFavoriteStatus(1, Number(id), next)
-      .then(setFavorited)
-      .catch(() => {})
+    setFavoriting(true)
+
+    // 乐观更新 UI
+    updateFavoriteStatus(1, eventId, next)
+
+    try {
+      const actualStatus = await setFavoriteStatus(1, eventId, next)
+      // 同步后端返回的实际状态
+      updateFavoriteStatus(1, eventId, actualStatus)
+      showToast(actualStatus ? '已收藏' : '已取消收藏', 'success')
+    } catch (err) {
+      // 失败时回滚
+      updateFavoriteStatus(1, eventId, favorited)
+      showToast(err instanceof Error ? err.message : '操作失败，请重试', 'error')
+    } finally {
+      setFavoriting(false)
+    }
   }
 
   const paragraphs = event?.content?.split('\n\n') || []
 
   return (
     <div className="min-h-screen bg-paper-100">
+      {/* Toast */}
+      <Toast message={message} type={type} onDismiss={dismissToast} />
+
       <motion.header
         className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 bg-paper-100/95 backdrop-blur-md border-b border-ink-lighter/10"
         initial={{ opacity: 0, y: -20 }}
@@ -82,13 +111,23 @@ export default function EventDetail() {
         <div className="flex items-center gap-1">
           <button
             onClick={handleToggleFavorite}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-ink-lighter/10 active:bg-ink-lighter/20 transition-colors"
+            disabled={favoriting}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-ink-lighter/10 active:bg-ink-lighter/20 transition-colors disabled:opacity-60"
             aria-label={favorited ? '取消收藏' : '收藏'}
           >
-            <Bookmark
-              size={20}
-              className={`transition-colors ${favorited ? 'fill-vermillion text-vermillion' : 'text-ink'}`}
-            />
+            <motion.div
+              animate={favorited ? { scale: [1, 1.3, 1] } : {}}
+              transition={{ duration: 0.3 }}
+            >
+              <Bookmark
+                size={20}
+                className={`transition-colors ${
+                  favorited
+                    ? 'fill-vermillion text-vermillion'
+                    : 'text-ink'
+                }`}
+              />
+            </motion.div>
           </button>
           <button
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-ink-lighter/10 active:bg-ink-lighter/20 transition-colors"
