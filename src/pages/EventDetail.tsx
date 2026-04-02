@@ -6,6 +6,7 @@ import { setFavoriteStatus } from '../api/user'
 import { useAuth } from '../contexts/AuthContext'
 import { useFavorites, loadFavoriteStatus } from '../contexts/FavoritesContext'
 import Toast, { useToast } from '../components/Toast'
+import AvatarPreview from '../components/AvatarPreview'
 import { useEventDetail } from '../hooks/useEventDetailPolling'
 
 const contentVariants = {
@@ -38,6 +39,7 @@ export default function EventDetail() {
   const eventId = id ? Number(id) : 0
   const favorited = isFavorited(1, eventId)
   const [favoriting, setFavoriting] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   // 事件详情 + 延伸阅读轮询
   const { event, relatedEvents, relatedState } = useEventDetail(id ? Number(id) : undefined)
@@ -144,12 +146,13 @@ export default function EventDetail() {
               <img
                 src={event.imageUrl}
                 alt={event.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => setPreviewOpen(true)}
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-b from-vermillion/15 to-paper-100" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-ink/60 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-ink/60 via-transparent to-transparent pointer-events-none" />
             <div className="absolute bottom-6 left-6 right-6">
               <p className="text-paper-50/90 text-sm font-serif font-bold tracking-wider uppercase mb-2">
                 {event.year}年 {event.month}月{event.day}日
@@ -233,6 +236,13 @@ export default function EventDetail() {
           </motion.div>
         </>
       )}
+
+      <AvatarPreview
+        open={previewOpen}
+        imageUrl={event?.imageUrl}
+        alt={event?.title || 'event image'}
+        onClose={() => setPreviewOpen(false)}
+      />
 
       <div className="h-8" />
     </div>

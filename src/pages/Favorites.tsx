@@ -251,7 +251,7 @@ export default function Favorites() {
                     <img
                       src={item.refImage}
                       alt={item.refTitle}
-                      className="w-full h-full object-cover grayscale"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
