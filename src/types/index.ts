@@ -111,17 +111,56 @@ export interface EventDetailVO {
   relatedEventsMessage?: string
 }
 
-// 问答题目
-export interface QuizQuestion {
+// 每日一题（后端 TodayQuizVO）
+export interface TodayQuiz {
   id: number
-  text: string
-  options: QuizOption[]
-  correctId: number
+  question: string
+  quizType: number  // 1-单选，2-多选
+  optionA: string
+  optionB: string
+  optionC: string
+  optionD: string
+  difficulty: number // 1-简单，2-中等，3-困难
+  answered: boolean
+  // 已答时返回的详情字段
+  correctOptions?: string   // 正确答案，如 "A" 或 "AB"
+  selectedOptions?: string  // 用户当时选择的答案
+  correct?: boolean         // 是否答对
+  explanation?: string      // 答案解析
+}
+
+// 答题结果（后端 QuizAnswerResultVO）
+export interface QuizAnswerResult {
+  quizId: number
+  correctOptions: string
+  selectedOptions: string
+  correct: boolean
   explanation: string
 }
 
+// 学习统计（后端 QuizStatsVO）
+export interface QuizStats {
+  streakDays: number
+  maxStreakDays: number
+  totalQuizCount: number
+  correctQuizCount: number
+  accuracyRate: number // 百分比，保留1位小数
+}
+
+// 历史答题记录（后端 QuizHistoryVO）
+export interface QuizHistory {
+  answerDate: string
+  question: string
+  quizType: number
+  correctOptions: string
+  selectedOptions: string
+  correct: boolean
+}
+
+// 前端 UI 使用的选项类型
 export interface QuizOption {
   id: number
+  label: string  // 'A', 'B', 'C', 'D'
   text: string
 }
 
