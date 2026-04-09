@@ -182,6 +182,40 @@ export interface RecommendedContent {
   body: string
 }
 
+// ==================== 推荐模块 ====================
+
+/** 历史人物详情 VO */
+export interface FigureDetailVO {
+  /** 人物ID */
+  id: number
+  /** 姓名 */
+  name: string
+  /** 副标题/身份描述 */
+  subtitle: string
+  /** 生卒年月 */
+  timeRange: string
+  /** 出生地 */
+  birthPlace: string
+  /** 朝代 */
+  dynasty: string
+  /** 人物画像URL */
+  imageUrl: string
+  /** 人物传记 */
+  biography: string
+  /** 代表作品（逗号分隔） */
+  works: string
+  /** 标签列表（JSON数组格式） */
+  tags: string
+}
+
+/** 每日推荐响应 VO */
+export interface DailyRecommendationVO {
+  /** 推荐日期 */
+  recommendDate: string
+  /** 人物详情 */
+  figure: FigureDetailVO
+}
+
 // 搜索建议
 export interface SearchSuggestion {
   type: 'recent' | 'trending'

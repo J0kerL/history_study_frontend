@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
-import { getFavoriteCount, hasFavorite as apiHasFavorite } from '../api/user'
+import { getFavoriteCount, hasFavorite as apiHasFavorite, getAchievementCount } from '../api/user'
 
 /** 收藏状态缓存 key */
 function favoriteKey(type: number, refId: number) {
@@ -13,16 +13,21 @@ interface FavoritesContextValue {
   refreshCount: () => Promise<void>
   /** 查询指定资源是否已收藏（带缓存） */
   isFavorited: (type: number, refId: number) => boolean
-  /** 更新指定资源的收藏状态（乐观更新 + 刷新计数） */
+  /** 更新指定资源的收藏状态（乐观更新 + 刷新计数 + 刷新成就） */
   updateFavoriteStatus: (type: number, refId: number, favorited: boolean) => void
   /** 从收藏列表中移除一项（用于 Favorites 页面删除后同步） */
   removeFavoriteItem: () => void
+  /** 已解锁成就数量 */
+  achievementCount: number | null
+  /** 刷新成就数量 */
+  refreshAchievementCount: () => Promise<void>
 }
 
 const FavoritesContext = createContext<FavoritesContextValue | undefined>(undefined)
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
   const [count, setCount] = useState<number | null>(null)
+  const [achievementCount, setAchievementCount] = useState<number | null>(null)
   /** 收藏状态缓存：key = "type:refId", value = boolean */
   const [statusCache, setStatusCache] = useState<Map<string, boolean>>(new Map())
 
@@ -36,6 +41,16 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  /** 刷新成就数量 */
+  const refreshAchievementCount = useCallback(async () => {
+    try {
+      const c = await getAchievementCount()
+      setAchievementCount(c)
+    } catch {
+      // 静默失败
+    }
+  }, [])
+
   /** 查询是否已收藏（先查缓存，缓存未命中则异步请求） */
   const isFavorited = useCallback(
     (type: number, refId: number) => {
@@ -44,7 +59,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     [statusCache],
   )
 
-  /** 更新收藏状态（乐观更新缓存 + 异步刷新计数） */
+  /** 更新收藏状态（乐观更新缓存 + 异步刷新计数 + 刷新成就） */
   const updateFavoriteStatus = useCallback(
     (type: number, refId: number, favorited: boolean) => {
       setStatusCache((prev) => {
@@ -52,10 +67,11 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         next.set(favoriteKey(type, refId), favorited)
         return next
       })
-      // 异步刷新收藏总数
+      // 异步刷新收藏总数和成就数量
       refreshCount()
+      refreshAchievementCount()
     },
-    [refreshCount],
+    [refreshCount, refreshAchievementCount],
   )
 
   /** 从收藏列表删除后，计数 -1 */
@@ -63,10 +79,11 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     setCount((prev) => (prev != null ? Math.max(0, prev - 1) : null))
   }, [])
 
-  // 初始化时刷新计数
+  // 初始化时刷新计数和成就
   useEffect(() => {
     refreshCount()
-  }, [refreshCount])
+    refreshAchievementCount()
+  }, [refreshCount, refreshAchievementCount])
 
   return (
     <FavoritesContext.Provider
@@ -76,6 +93,8 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         isFavorited,
         updateFavoriteStatus,
         removeFavoriteItem,
+        achievementCount,
+        refreshAchievementCount,
       }}
     >
       {children}

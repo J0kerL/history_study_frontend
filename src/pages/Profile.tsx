@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { Settings, Bookmark, Award, ChevronRight, Flame, BookOpen, Target, LogIn } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getCurrentUser, getAchievementCount } from '../api/user'
+import { getCurrentUser } from '../api/user'
 import { getQuizStats } from '../api/quiz'
 import AvatarPreview from '../components/AvatarPreview'
 import { useFavorites } from '../contexts/FavoritesContext'
@@ -37,10 +37,9 @@ const itemVariants = {
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { count: favoriteCount, refreshCount } = useFavorites()
+  const { count: favoriteCount, refreshCount, achievementCount, refreshAchievementCount } = useFavorites()
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [quizStats, setQuizStats] = useState<QuizStats | null>(null)
-  const [achievementCount, setAchievementCount] = useState(0)
   const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(() => {
@@ -48,23 +47,22 @@ export default function Profile() {
     Promise.all([
       getCurrentUser().catch(() => null),
       getQuizStats().catch(() => null),
-      getAchievementCount().catch(() => 0),
-    ]).then(([u, s, a]) => {
+    ]).then(([u, s]) => {
       if (mounted) {
         if (u) setUser(u)
         if (s) setQuizStats(s)
-        if (a) setAchievementCount(a)
       }
     })
     refreshCount()
+    refreshAchievementCount()
     return () => { mounted = false }
-  }, [refreshCount])
+  }, [refreshCount, refreshAchievementCount])
 
   const menuData = useMemo(() => {
     return menuItems.map((item) => ({
       ...item,
-      count: item.label === '我的收藏' ? favoriteCount : 
-             item.label === '成就徽章' ? achievementCount : 
+      count: item.label === '我的收藏' ? favoriteCount :
+             item.label === '成就徽章' ? achievementCount :
              item.count,
     }))
   }, [favoriteCount, achievementCount])
