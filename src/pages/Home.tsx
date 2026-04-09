@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronRight, LogIn, X, Loader2, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { useTodayEvents } from '../hooks/useTodayEventsPolling'
+import { useTodayEvents } from '../contexts/TodayEventsContext'
+import { recordLearningAction, LearningActionType } from '../api/learning'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -37,6 +38,15 @@ export default function Home() {
 
   const today = new Date()
   const dateString = `${today.getMonth() + 1}月${today.getDate()}日`
+
+  // 记录浏览史今行为
+  useEffect(() => {
+    if (isAuthenticated && state === 'ready') {
+      recordLearningAction(LearningActionType.BROWSE_TODAY).catch(() => {
+        // 静默失败，不影响用户体验
+      })
+    }
+  }, [isAuthenticated, state])
 
   function handleCardClick(eventId: number) {
     if (isAuthenticated) {

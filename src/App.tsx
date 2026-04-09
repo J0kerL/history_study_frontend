@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { AuthProvider } from './contexts/AuthContext'
 import { FavoritesProvider } from './contexts/FavoritesContext'
+import { TodayEventsProvider } from './contexts/TodayEventsContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import Layout from './components/Layout'
 import Home from './pages/Home'
@@ -46,9 +47,11 @@ function App() {
       <ErrorBoundary>
         <AuthProvider>
           <FavoritesProvider>
-            <Layout>
-              <AnimatedRoutes />
-            </Layout>
+            <TodayEventsProvider>
+              <Layout>
+                <AnimatedRoutes />
+              </Layout>
+            </TodayEventsProvider>
           </FavoritesProvider>
         </AuthProvider>
       </ErrorBoundary>

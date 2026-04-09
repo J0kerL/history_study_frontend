@@ -23,6 +23,11 @@ export function getAchievements(params: { pageNum?: number; pageSize?: number })
   return apiGet<PageResult<Achievement>>(`/user/achievements?${query.toString()}`)
 }
 
+/** 获取已解锁成就数量 */
+export function getAchievementCount() {
+  return apiGet<number>('/user/achievements/count')
+}
+
 /** 更新用户个人信息（用户名/手机号，仅填写字段生效） */
 export function updateProfile(data: { username?: string; phone?: string }) {
   return apiPut<CurrentUser>('/user/profile', data)

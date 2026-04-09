@@ -2,10 +2,11 @@ import { motion } from 'framer-motion'
 import { Settings, Bookmark, Award, ChevronRight, Flame, BookOpen, Target, LogIn } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getCurrentUser } from '../api/user'
+import { getCurrentUser, getAchievementCount } from '../api/user'
+import { getQuizStats } from '../api/quiz'
 import AvatarPreview from '../components/AvatarPreview'
 import { useFavorites } from '../contexts/FavoritesContext'
-import type { CurrentUser } from '../types'
+import type { CurrentUser, QuizStats } from '../types'
 
 /** 菜单项配置（count 由组件动态注入） */
 const menuItems = [
@@ -38,15 +39,23 @@ export default function Profile() {
   const navigate = useNavigate()
   const { count: favoriteCount, refreshCount } = useFavorites()
   const [user, setUser] = useState<CurrentUser | null>(null)
+  const [quizStats, setQuizStats] = useState<QuizStats | null>(null)
+  const [achievementCount, setAchievementCount] = useState(0)
   const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(() => {
     let mounted = true
-    getCurrentUser()
-      .then((u) => {
-        if (mounted) setUser(u)
-      })
-      .catch(() => {})
+    Promise.all([
+      getCurrentUser().catch(() => null),
+      getQuizStats().catch(() => null),
+      getAchievementCount().catch(() => 0),
+    ]).then(([u, s, a]) => {
+      if (mounted) {
+        if (u) setUser(u)
+        if (s) setQuizStats(s)
+        if (a) setAchievementCount(a)
+      }
+    })
     refreshCount()
     return () => { mounted = false }
   }, [refreshCount])
@@ -54,17 +63,17 @@ export default function Profile() {
   const menuData = useMemo(() => {
     return menuItems.map((item) => ({
       ...item,
-      count: item.label === '我的收藏' ? favoriteCount : item.count,
+      count: item.label === '我的收藏' ? favoriteCount : 
+             item.label === '成就徽章' ? achievementCount : 
+             item.count,
     }))
-  }, [favoriteCount])
+  }, [favoriteCount, achievementCount])
 
   const stats = useMemo(() => {
-    const streakDays = user?.streakDays ?? 0
-    const totalQuizCount = user?.totalQuizCount ?? 0
-    const correctRate =
-      user && user.totalQuizCount > 0
-        ? Math.round((user.correctQuizCount / user.totalQuizCount) * 100)
-        : 0
+    // 统一使用 quiz/stats 接口的数据（后端计算的正确率，保留1位小数）
+    const streakDays = quizStats?.streakDays ?? user?.streakDays ?? 0
+    const totalQuizCount = quizStats?.totalQuizCount ?? user?.totalQuizCount ?? 0
+    const accuracyRate = quizStats?.accuracyRate ?? 0
 
     return [
       {
@@ -85,14 +94,14 @@ export default function Profile() {
       },
       {
         label: '正确率',
-        value: String(correctRate),
+        value: accuracyRate.toFixed(1),  // 统一使用后端计算的，保留1位小数
         unit: '%',
         icon: Target,
         iconColor: 'text-emerald-500',
         bgColor: 'bg-emerald-50',
       },
     ]
-  }, [user])
+  }, [quizStats, user])
 
   return (
     <div className="min-h-screen">

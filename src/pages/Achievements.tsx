@@ -70,6 +70,8 @@ export default function Achievements() {
 
   useEffect(() => {
     if (notLoggedIn) return
+    // 直接加载成就列表，不主动触发检查
+    // 成就应在用户行为（收藏、答题等）发生时自动检查解锁
     loadData(1, true)
   }, [loadData, notLoggedIn])
 

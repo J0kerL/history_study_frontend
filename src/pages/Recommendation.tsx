@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Bookmark, Share2, Clock, MapPin } from 'lucide-react'
 import type { RecommendedContent } from '../types'
 import { hasFavorite, setFavoriteStatus } from '../api/user'
+import Toast, { useToast } from '../components/Toast'
 
 const content: RecommendedContent = {
   id: '1',
@@ -41,6 +42,7 @@ const itemVariants = {
 
 export default function Recommendation() {
   const navigate = useNavigate()
+  const { message, type, showToast, dismissToast } = useToast()
   const [favorited, setFavorited] = useState(false)
 
   useEffect(() => {
@@ -63,10 +65,16 @@ export default function Recommendation() {
       .catch(() => {})
   }
 
+  const handleShare = () => {
+    showToast('😴 该功能由于作者懒 不想开发了', 'info')
+  }
+
   const paragraphs = content.body.split('\n\n')
 
   return (
     <div className="min-h-screen bg-paper-100">
+      {/* Toast */}
+      <Toast message={message} type={type} onDismiss={dismissToast} />
       <motion.div
         className="relative h-[480px] overflow-hidden"
         initial={{ opacity: 0 }}
@@ -97,7 +105,11 @@ export default function Recommendation() {
                 className={`transition-colors ${favorited ? 'fill-vermillion text-vermillion' : 'text-paper-50'}`}
               />
             </button>
-            <button className="w-10 h-10 flex items-center justify-center bg-ink/30 backdrop-blur-sm rounded-full hover:bg-ink/40 active:bg-ink/50 transition-colors">
+            <button
+              onClick={handleShare}
+              className="w-10 h-10 flex items-center justify-center bg-ink/30 backdrop-blur-sm rounded-full hover:bg-ink/40 active:bg-ink/50 transition-colors"
+              aria-label="分享"
+            >
               <Share2 size={20} className="text-paper-50" />
             </button>
           </div>

@@ -8,6 +8,7 @@ import { useFavorites, loadFavoriteStatus } from '../contexts/FavoritesContext'
 import Toast, { useToast } from '../components/Toast'
 import AvatarPreview from '../components/AvatarPreview'
 import { useEventDetail } from '../hooks/useEventDetailPolling'
+import { recordLearningAction, LearningActionType } from '../api/learning'
 
 const contentVariants = {
   hidden: { opacity: 0 },
@@ -44,6 +45,15 @@ export default function EventDetail() {
   // 事件详情 + 延伸阅读轮询
   const { event, relatedEvents, relatedState } = useEventDetail(id ? Number(id) : undefined)
 
+  // 记录阅读详情行为
+  useEffect(() => {
+    if (isAuthenticated && event) {
+      recordLearningAction(LearningActionType.READ_DETAIL).catch(() => {
+        // 静默失败
+      })
+    }
+  }, [isAuthenticated, event?.id])
+
   // 加载收藏状态
   useEffect(() => {
     if (!id || !isAuthenticated) return
@@ -76,6 +86,10 @@ export default function EventDetail() {
     } finally {
       setFavoriting(false)
     }
+  }
+
+  const handleShare = () => {
+    showToast('😴 该功能由于作者懒 不想开发了', 'info')
   }
 
   const paragraphs = event?.content?.split('\n\n') || []
@@ -120,6 +134,7 @@ export default function EventDetail() {
             </motion.div>
           </button>
           <button
+            onClick={handleShare}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-ink-lighter/10 active:bg-ink-lighter/20 transition-colors"
             aria-label="分享"
           >
