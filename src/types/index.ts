@@ -224,6 +224,21 @@ export interface SearchSuggestion {
   text: string
 }
 
+// 搜索结果
+export interface SearchResult {
+  events: EventSummaryVO[]
+  figures: FigureSearchVO[]
+}
+
+// 人物搜索结果（后端 FigureSearchVO）
+export interface FigureSearchVO {
+  id: number
+  name: string
+  subtitle: string
+  dynasty: string
+  imageUrl: string
+}
+
 // 后端 /user/current 返回的用户信息（对应 History 后端 User 实体）
 export interface CurrentUser {
   id: number

@@ -164,6 +164,12 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   return (res.data as ApiEnvelope<T>).data
 }
 
+/** DELETE 请求 */
+export async function apiDelete<T>(path: string): Promise<T> {
+  const res = await http.delete<ApiEnvelope<T>>(path)
+  return (res.data as ApiEnvelope<T>).data
+}
+
 /** POST 请求（multipart/form-data，用于文件上传） */
 export async function apiPostFormData<T>(path: string, formData: FormData): Promise<T> {
   const res = await http.post<ApiEnvelope<T>>(path, formData, {
