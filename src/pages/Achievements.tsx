@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Award, Star, LogIn } from 'lucide-react'
+import { ArrowLeft, Award, Star, LogIn, Lock } from 'lucide-react'
 import { getAchievements } from '../api/user'
 import type { Achievement } from '../types'
 import { useAuth } from '../contexts/AuthContext'
@@ -38,6 +38,7 @@ export default function Achievements() {
   const [pageNum, setPageNum] = useState(1)
   const [hasNext, setHasNext] = useState(false)
   const [total, setTotal] = useState(0)
+  const [unlockedCount, setUnlockedCount] = useState(0)
 
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -56,9 +57,34 @@ export default function Achievements() {
 
     try {
       const result = await getAchievements({ pageNum: page, pageSize: PAGE_SIZE })
-      setItems((prev) => reset ? result.list : [...prev, ...result.list])
+      
+      // 前端排序：已解锁的成就排在前面
+      const sortedList = [...result.list].sort((a, b) => {
+        const aUnlocked = !!a.unlockedAt
+        const bUnlocked = !!b.unlockedAt
+        if (aUnlocked && !bUnlocked) return -1
+        if (!aUnlocked && bUnlocked) return 1
+        return 0
+      })
+      
+      setItems((prev) => {
+        const newItems = reset ? sortedList : [...prev, ...sortedList]
+        // 合并后再次排序确保顺序正确
+        return newItems.sort((a, b) => {
+          const aUnlocked = !!a.unlockedAt
+          const bUnlocked = !!b.unlockedAt
+          if (aUnlocked && !bUnlocked) return -1
+          if (!aUnlocked && bUnlocked) return 1
+          return 0
+        })
+      })
       setHasNext(result.hasNext)
       setTotal(result.total)
+      if (reset) {
+        setUnlockedCount(sortedList.filter((a: Achievement) => a.unlockedAt).length)
+      } else {
+        setUnlockedCount((prev) => prev + result.list.filter((a: Achievement) => a.unlockedAt).length)
+      }
       setPageNum(page)
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载失败，请重试')
@@ -70,8 +96,6 @@ export default function Achievements() {
 
   useEffect(() => {
     if (notLoggedIn) return
-    // 直接加载成就列表，不主动触发检查
-    // 成就应在用户行为（收藏、答题等）发生时自动检查解锁
     loadData(1, true)
   }, [loadData, notLoggedIn])
 
@@ -100,7 +124,7 @@ export default function Achievements() {
         <div>
           <h1 className="text-2xl font-serif font-bold text-ink">成就徽章</h1>
           {total > 0 && !loading && (
-            <p className="text-xs text-ink-light mt-0.5">已获得 {total} 枚</p>
+            <p className="text-xs text-ink-light mt-0.5">已获得 {unlockedCount} / {total} 枚</p>
           )}
         </div>
       </motion.header>
@@ -179,44 +203,67 @@ export default function Achievements() {
               hidden: {},
             }}
           >
-            {items.map((achievement) => (
-              <motion.div
-                key={achievement.id}
-                className="bg-paper-50 rounded-2xl border border-ink-lighter/10 p-4 flex flex-col items-center text-center gap-2"
-                variants={{
-                  hidden: { opacity: 0, y: 20 },
-                  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
-                }}
-              >
-                {/* 图标 */}
-                <div className="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-200/60 flex items-center justify-center mb-1">
-                  {achievement.iconUrl ? (
-                    <img
-                      src={achievement.iconUrl}
-                      alt={achievement.name}
-                      className="w-10 h-10 object-contain"
-                    />
-                  ) : (
-                    <Star size={28} className="text-amber-500 fill-amber-400" />
-                  )}
-                </div>
+            {items.map((achievement) => {
+              const isUnlocked = !!achievement.unlockedAt
+              return (
+                <motion.div
+                  key={achievement.id}
+                  className={`rounded-2xl border p-4 flex flex-col items-center text-center gap-2 ${
+                    isUnlocked
+                      ? 'bg-paper-50 border-ink-lighter/10'
+                      : 'bg-paper-50/50 border-ink-lighter/5 opacity-60'
+                  }`}
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+                  }}
+                >
+                  {/* 图标 */}
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-1 ${
+                    isUnlocked
+                      ? 'bg-amber-50 border-2 border-amber-200/60'
+                      : 'bg-paper-200/60 border-2 border-ink-lighter/10'
+                  }`}>
+                    {isUnlocked ? (
+                      achievement.iconUrl ? (
+                        <img
+                          src={achievement.iconUrl}
+                          alt={achievement.name}
+                          className="w-10 h-10 object-contain"
+                        />
+                      ) : (
+                        <Star size={28} className="text-amber-500 fill-amber-400" />
+                      )
+                    ) : (
+                      <Lock size={24} className="text-ink-lighter/40" />
+                    )}
+                  </div>
 
-                {/* 名称 */}
-                <h3 className="text-sm font-serif font-bold text-ink leading-tight">
-                  {achievement.name}
-                </h3>
+                  {/* 名称 */}
+                  <h3 className={`text-sm font-serif font-bold leading-tight ${
+                    isUnlocked ? 'text-ink' : 'text-ink-lighter'
+                  }`}>
+                    {isUnlocked ? achievement.name : '???'}
+                  </h3>
 
-                {/* 描述 */}
-                <p className="text-xs text-ink-light leading-relaxed line-clamp-2">
-                  {achievement.description}
-                </p>
+                  {/* 描述 */}
+                  <p className={`text-xs leading-relaxed line-clamp-2 ${
+                    isUnlocked ? 'text-ink-light' : 'text-ink-lighter/60'
+                  }`}>
+                    {achievement.description}
+                  </p>
 
-                {/* 解锁条件 */}
-                <span className="mt-1 px-2.5 py-1 bg-amber-50 rounded-full text-[10px] text-amber-600 font-medium">
-                  {conditionLabel(achievement.conditionType, achievement.conditionValue)}
-                </span>
-              </motion.div>
-            ))}
+                  {/* 解锁条件 */}
+                  <span className={`mt-1 px-2.5 py-1 rounded-full text-[10px] font-medium ${
+                    isUnlocked
+                      ? 'bg-amber-50 text-amber-600'
+                      : 'bg-paper-100 text-ink-lighter/50'
+                  }`}>
+                    {conditionLabel(achievement.conditionType, achievement.conditionValue)}
+                  </span>
+                </motion.div>
+              )
+            })}
           </motion.div>
         )}
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, XCircle, Flame, Target, BookOpen } from 'lucide-react'
+import { CheckCircle2, XCircle, Flame, Target, BookOpen, LogIn, X } from 'lucide-react'
 import { getTodayQuiz, submitAnswer, getQuizStats } from '../api/quiz'
 import { useAuth } from '../contexts/AuthContext'
 import type { TodayQuiz, QuizStats as QuizStatsType, QuizOption } from '../types'
@@ -46,7 +47,8 @@ function formatAccuracy(rate: number | undefined): string {
 }
 
 export default function Quiz() {
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const [quiz, setQuiz] = useState<TodayQuiz | null>(null)
   const [stats, setStats] = useState<QuizStatsType | null>(null)
   const [options, setOptions] = useState<QuizOption[]>([])
@@ -56,6 +58,7 @@ export default function Quiz() {
   const [explanation, setExplanation] = useState('')
   const [isCorrect, setIsCorrect] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const submitted = useRef(false)
 
   // localStorage key 绑定用户 ID，防止不同用户间状态污染
@@ -83,6 +86,7 @@ export default function Quiz() {
   }, [storageKey])
 
   useEffect(() => {
+    // 支持匿名访问：未登录也能获取题目和默认统计
     Promise.all([
       getTodayQuiz().catch(() => null),
       getQuizStats().catch(() => null),
@@ -92,7 +96,6 @@ export default function Quiz() {
         setOptions(toOptions(q))
 
         // 若后端告知今日已答（含答题详情），直接恢复状态
-        // 这里是唯一真实数据来源，会覆盖掉过期的 localStorage
         if (q.answered && q.correctOptions) {
           const opts = toOptions(q)
           const selectedLabel = q.selectedOptions ?? ''
@@ -110,7 +113,6 @@ export default function Quiz() {
   }, [])
 
   // 保存答题状态到 localStorage，供同一天内页面切换时快速恢复
-  // 只在有 correctOptions 时才保存，确保数据完整（网络请求完成后才有 correctOptions）
   useEffect(() => {
     if (isAnswered && quiz && correctOptions && storageKey) {
       localStorage.setItem(storageKey, JSON.stringify({
@@ -127,6 +129,13 @@ export default function Quiz() {
 
   const handleOptionClick = async (id: number) => {
     if (!quiz || isAnswered || submitted.current) return
+
+    // 检查登录状态 - 如果未登录，弹出登录提示弹窗
+    if (!isAuthenticated) {
+      setShowLoginPrompt(true)
+      return
+    }
+
     submitted.current = true
     setSelectedOption(id)
     setIsAnswered(true)
@@ -178,7 +187,6 @@ export default function Quiz() {
     return classes
   }
 
-  // 加载状态
   if (!quiz) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -187,7 +195,6 @@ export default function Quiz() {
     )
   }
 
-  // 已答状态
   return (
     <div className="min-h-screen">
       <motion.header
@@ -233,10 +240,19 @@ export default function Quiz() {
           variants={itemVariants}
           className="relative bg-paper-50 rounded-3xl p-8 shadow-card border border-ink-lighter/10"
         >
-          <div className="absolute -top-3 left-6 px-4 py-1 bg-vermillion rounded-full shadow-sm">
-            <span className="text-sm font-serif font-bold text-paper-50">
-              {quiz.difficulty === 1 ? '简单' : quiz.difficulty === 2 ? '中等' : '困难'}
-            </span>
+          <div className="absolute -top-3 left-6 flex gap-2">
+            <div className="px-4 py-1 bg-vermillion rounded-full shadow-sm">
+              <span className="text-sm font-serif font-bold text-paper-50">
+                {quiz.difficulty === 1 ? '简单' : quiz.difficulty === 2 ? '中等' : '困难'}
+              </span>
+            </div>
+            <div className={`px-4 py-1 rounded-full shadow-sm ${
+              quiz.quizType === 1 ? 'bg-blue-500' : 'bg-purple-500'
+            }`}>
+              <span className="text-sm font-serif font-bold text-paper-50">
+                {quiz.quizType === 1 ? '单选' : '多选'}
+              </span>
+            </div>
           </div>
           <p className="text-xl font-serif font-medium text-ink leading-relaxed mt-4">
             {quiz.question}
@@ -259,11 +275,9 @@ export default function Quiz() {
                 <span className={getTextStyles(option.id)}>{option.text}</span>
                 {isAnswered && (
                   <>
-                    {/* 正确答案显示 √ */}
                     {isCorrectOption && (
                       <CheckCircle2 size={24} className="text-green-500 flex-shrink-0" />
                     )}
-                    {/* 用户选错的选项显示 ×（仅在用户选择了该选项且该选项不正确时） */}
                     {isSelected && !isCorrectOption && (
                       <XCircle size={24} className="text-orange-500 flex-shrink-0" />
                     )}
@@ -310,6 +324,70 @@ export default function Quiz() {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* 登录提示弹窗 */}
+      <AnimatePresence>
+        {showLoginPrompt && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* 遮罩 */}
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowLoginPrompt(false)}
+            />
+            {/* 弹窗内容 */}
+            <motion.div
+              className="relative w-full max-w-sm bg-paper-50 rounded-3xl border border-ink-lighter/10 shadow-xl overflow-hidden"
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            >
+              {/* 关闭按钮 */}
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-paper-200 active:bg-paper-200 transition-colors"
+                aria-label="关闭"
+              >
+                <X size={16} className="text-ink-light" />
+              </button>
+
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-vermillion/10 flex items-center justify-center mx-auto mb-5">
+                  <LogIn size={28} className="text-vermillion" />
+                </div>
+                <h3 className="text-xl font-serif font-bold text-ink mb-2">
+                  登录后答题
+                </h3>
+                <p className="text-sm text-ink-light leading-relaxed mb-8">
+                  登录后即可参与答题，查看答题统计和答案解析
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowLoginPrompt(false)}
+                    className="flex-1 py-3 rounded-full bg-paper-200 text-ink text-sm font-medium hover:bg-paper-200/80 active:opacity-80 transition-colors"
+                  >
+                    稍后再说
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowLoginPrompt(false)
+                      navigate('/login')
+                    }}
+                    className="flex-1 py-3 rounded-full bg-vermillion text-white text-sm font-medium hover:bg-vermillion-dark active:opacity-80 transition-colors"
+                  >
+                    去登录
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="h-8" />
     </div>

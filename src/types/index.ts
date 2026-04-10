@@ -41,6 +41,8 @@ export interface Achievement {
   /** 解锁条件类型：1-连续登录，2-累计答题，3-累计收藏，4-正确率 */
   conditionType: number
   conditionValue: number
+  /** 解锁时间，未解锁时为null */
+  unlockedAt: string | null
 }
 
 // ==================== 认证相关 ====================

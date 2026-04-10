@@ -1,20 +1,30 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Bookmark, Share2, Clock, MapPin, BookOpen } from 'lucide-react'
+import { Bookmark, Share2, Clock, MapPin, BookOpen, Lock } from 'lucide-react'
 import type { FigureDetailVO } from '../types'
 import { getTodayRecommendation } from '../api/recommendation'
 import { hasFavorite, setFavoriteStatus } from '../api/user'
 import Toast, { useToast } from '../components/Toast'
+import AvatarPreview from '../components/AvatarPreview'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Recommendation() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const { message, type, showToast, dismissToast } = useToast()
   const [figure, setFigure] = useState<FigureDetailVO | null>(null)
   const [favorited, setFavorited] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(() => {
+    // 未登录时显示友好提示，不请求数据
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
     const token = localStorage.getItem('accessToken')
     
     // 获取推荐数据
@@ -38,7 +48,7 @@ export default function Recommendation() {
       .finally(() => {
         setLoading(false)
       })
-  }, [])
+  }, [isAuthenticated])
 
   const handleToggleFavorite = () => {
     const token = localStorage.getItem('accessToken')
@@ -54,6 +64,29 @@ export default function Recommendation() {
 
   const handleShare = () => {
     showToast('😴 该功能由于作者懒 不想开发了', 'info')
+  }
+
+  // 未登录状态显示友好提示
+  if (!isAuthenticated && !loading) {
+    return (
+      <div className="min-h-screen bg-paper-100 flex flex-col items-center justify-center px-8">
+        <div className="w-20 h-20 rounded-full bg-vermillion/10 flex items-center justify-center mb-6">
+          <Lock size={36} className="text-vermillion" />
+        </div>
+        <h2 className="text-2xl font-serif font-bold text-ink mb-3 text-center">
+          登录后查看今日推荐
+        </h2>
+        <p className="text-[15px] text-ink-light/80 text-center mb-8 max-w-xs leading-relaxed">
+          登录后可查看每日推荐的历史人物，了解更多精彩内容
+        </p>
+        <button
+          onClick={() => navigate('/login')}
+          className="px-8 py-3 bg-vermillion text-paper-50 font-medium rounded-full hover:bg-vermillion/90 active:bg-vermillion/80 transition-colors shadow-lg shadow-vermillion/20"
+        >
+          立即登录
+        </button>
+      </div>
+    )
   }
 
   if (loading || !figure) {
@@ -101,9 +134,10 @@ export default function Recommendation() {
         <img
           src={figure.imageUrl}
           alt={figure.name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover cursor-pointer"
+          onClick={() => setPreviewOpen(true)}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-ink/40 via-ink/10 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink/40 via-ink/10 to-transparent pointer-events-none" />
 
         <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
           <div className="px-3 py-1.5 bg-ink/30 backdrop-blur-sm rounded-full">
@@ -204,6 +238,13 @@ export default function Recommendation() {
           )}
         </div>
       </motion.div>
+
+      <AvatarPreview
+        open={previewOpen}
+        imageUrl={figure.imageUrl}
+        alt={figure.name}
+        onClose={() => setPreviewOpen(false)}
+      />
 
       <div className="h-8" />
     </div>
