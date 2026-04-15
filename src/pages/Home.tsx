@@ -5,6 +5,7 @@ import { ChevronRight, LogIn, X, Loader2, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTodayEvents } from '../contexts/TodayEventsContext'
 import { recordLearningAction, LearningActionType } from '../api/learning'
+import { handleError } from '../utils/errorHandler'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -42,7 +43,8 @@ export default function Home() {
   // 记录浏览史今行为
   useEffect(() => {
     if (isAuthenticated && state === 'ready') {
-      recordLearningAction(LearningActionType.BROWSE_TODAY).catch(() => {
+      recordLearningAction(LearningActionType.BROWSE_TODAY).catch((err) => {
+        handleError(err, 'recordLearningAction')
         // 静默失败，不影响用户体验
       })
     }
@@ -134,6 +136,7 @@ export default function Home() {
                     src={event.imageUrl}
                     alt={event.title}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                   />
                   <div className="absolute top-4 left-4 px-3 py-1 bg-paper-50/90 backdrop-blur-sm rounded-full">
                     <span className="text-sm font-serif font-bold text-vermillion">

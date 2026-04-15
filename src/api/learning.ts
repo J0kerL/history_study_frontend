@@ -1,4 +1,4 @@
-import { apiPost } from './client'
+import { apiPost, buildQueryString } from './client'
 
 /** 学习行为类型 */
 export enum LearningActionType {
@@ -16,5 +16,6 @@ export enum LearningActionType {
 
 /** 记录学习行为 */
 export function recordLearningAction(actionType: LearningActionType) {
-  return apiPost<void>(`/learning/record?actionType=${actionType}`, {})
+  const query = buildQueryString({ actionType })
+  return apiPost<void>(`/learning/record${query}`, {})
 }

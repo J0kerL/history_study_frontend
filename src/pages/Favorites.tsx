@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Trash2, Bookmark, BookOpen, User, LogIn } from 'lucide-react'
 import { getFavorites, removeFavorite } from '../api/user'
-import type { FavoriteVO } from '../types'
+import { DEFAULT_PAGE_SIZE } from '../constants'
 import { useAuth } from '../contexts/AuthContext'
 import { useFavorites } from '../contexts/FavoritesContext'
 import Toast, { useToast } from '../components/Toast'
+import { handleError } from '../utils/errorHandler'
+import type { FavoriteVO } from '../types'
 
 /** 筛选类型：0=全部，1=事件，2=人物 */
 type FilterType = 0 | 1 | 2
@@ -17,7 +19,7 @@ const filterTabs: { label: string; value: FilterType; icon: typeof BookOpen }[] 
   { label: '人物', value: 2, icon: User },
 ]
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = DEFAULT_PAGE_SIZE
 
 /** 收藏卡片骨架屏 */
 function SkeletonCard() {
@@ -77,6 +79,7 @@ export default function Favorites() {
       setTotal(result.total)
       setPageNum(page)
     } catch (err) {
+      handleError(err, 'getFavorites')
       setError(err instanceof Error ? err.message : '加载失败，请重试')
     } finally {
       setLoading(false)
@@ -241,7 +244,11 @@ export default function Favorites() {
               exit={{ opacity: 0, x: -40, scale: 0.95 }}
               transition={{ duration: 0.3, delay: idx * 0.04 }}
               onClick={() => {
-                if (item.type === 1) navigate(`/event/${item.refId}`)
+                if (item.type === 1) {
+                  navigate(`/event/${item.refId}`)
+                } else if (item.type === 2) {
+                  navigate(`/figure/${item.refId}`)
+                }
               }}
             >
               <div className="flex gap-4 p-4">
@@ -252,6 +259,7 @@ export default function Favorites() {
                       src={item.refImage}
                       alt={item.refTitle}
                       className="w-full h-full object-cover"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">

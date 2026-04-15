@@ -11,6 +11,8 @@ import AvatarPreview from '../components/AvatarPreview'
 import Toast, { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { updatePasswordSchema, type UpdatePasswordFormData } from '../utils/validation'
+import { handleError } from '../utils/errorHandler'
+import { MAX_USERNAME_LENGTH, PHONE_LENGTH, MAX_AVATAR_SIZE, AVATAR_ACCEPT_TYPES } from '../constants'
 import type { CurrentUser } from '../types'
 
 /** 卡片区块标题 */
@@ -125,8 +127,8 @@ export default function Settings() {
       showToast('用户名不能为空', false)
       return
     }
-    if (username.trim().length > 20) {
-      showToast('用户名不能超过 20 个字符', false)
+    if (username.trim().length > MAX_USERNAME_LENGTH) {
+      showToast(`用户名不能超过 ${MAX_USERNAME_LENGTH} 个字符`, false)
       return
     }
     if (phone && !/^\d{11}$/.test(phone)) {
@@ -143,6 +145,7 @@ export default function Settings() {
       setUser(updated)
       showToast('个人信息已更新', true)
     } catch (err) {
+      handleError(err, 'updateProfile')
       showToast(err instanceof Error ? err.message : '保存失败，请重试', false)
     } finally {
       setSavingProfile(false)
@@ -155,8 +158,8 @@ export default function Settings() {
     if (!file) return
 
     // 限制 5MB
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('图片不能超过 5MB', false)
+    if (file.size > MAX_AVATAR_SIZE) {
+      showToast(`图片不能超过 ${MAX_AVATAR_SIZE / 1024 / 1024}MB`, false)
       return
     }
 
@@ -166,6 +169,7 @@ export default function Settings() {
       setUser(updated)
       showToast('头像已更新', true)
     } catch (err) {
+      handleError(err, 'uploadAvatar')
       showToast(err instanceof Error ? err.message : '头像上传失败', false)
     } finally {
       setUploadingAvatar(false)
@@ -185,6 +189,7 @@ export default function Settings() {
       resetPasswordForm()
       showToast('密码已更新', true)
     } catch (err) {
+      handleError(err, 'updatePassword')
       const message = err instanceof Error ? err.message : '密码修改失败'
       // 后端错误映射到表单字段
       if (message.includes('原密码') || message.includes('旧密码')) {
@@ -285,7 +290,7 @@ export default function Settings() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
+              accept={AVATAR_ACCEPT_TYPES}
               className="hidden"
               onChange={handleAvatarChange}
             />
@@ -307,7 +312,7 @@ export default function Settings() {
               icon={Phone}
               label="手机号"
               value={phone}
-              onChange={(v) => setPhone(v.replace(/\D/g, '').slice(0, 11))}
+              onChange={(v) => setPhone(v.replace(/\D/g, '').slice(0, PHONE_LENGTH))}
               type="tel"
               placeholder="请输入手机号"
             />

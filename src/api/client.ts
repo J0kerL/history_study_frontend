@@ -1,7 +1,10 @@
 import axios from 'axios'
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import { API_TIMEOUT } from '../constants'
 
-export type ApiEnvelope<T> = {
+// ==================== API 响应类型 ====================
+
+export interface ApiEnvelope<T = unknown> {
   code: number
   message: string
   data: T
@@ -11,32 +14,65 @@ export type ApiEnvelope<T> = {
 
 const http = axios.create({
   baseURL:
-    (import.meta as any).env?.VITE_API_BASE_URL ||
-    (import.meta as any).env?.VITE_API_BASE ||
+    (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
+    (import.meta.env.VITE_API_BASE as string | undefined) ||
     '',
-  timeout: 15_000,
+  timeout: API_TIMEOUT,
   headers: { 'Content-Type': 'application/json' },
 })
 
-// ==================== Token 工具函数 ====================
+// ==================== Token 管理器 ====================
 
+/**
+ * Token 管理器 - 使用 sessionStorage 存储 accessToken
+ * accessToken 存储在内存/sessionStorage 中，减少 XSS 风险
+ * refreshToken 仍存储在 localStorage，因为只能用于刷新端点
+ */
+class TokenManager {
+  private readonly ACCESS_TOKEN_KEY = 'accessToken'
+  private readonly REFRESH_TOKEN_KEY = 'refreshToken'
+  // 兼容旧 token key
+  private readonly LEGACY_TOKEN_KEY = 'token'
+
+  /** 保存 Token */
+  saveTokens(accessToken: string, refreshToken: string): void {
+    // accessToken 使用 sessionStorage（页面关闭后清除）
+    sessionStorage.setItem(this.ACCESS_TOKEN_KEY, accessToken)
+    // refreshToken 使用 localStorage（持久化，用于自动刷新）
+    localStorage.setItem(this.REFRESH_TOKEN_KEY, refreshToken)
+  }
+
+  /** 清除所有 Token */
+  clearTokens(): void {
+    sessionStorage.removeItem(this.ACCESS_TOKEN_KEY)
+    localStorage.removeItem(this.REFRESH_TOKEN_KEY)
+    localStorage.removeItem(this.LEGACY_TOKEN_KEY)
+  }
+
+  /** 获取 accessToken */
+  getAccessToken(): string {
+    return (
+      sessionStorage.getItem(this.ACCESS_TOKEN_KEY) ||
+      localStorage.getItem(this.LEGACY_TOKEN_KEY) ||
+      ''
+    )
+  }
+
+  /** 获取 refreshToken */
+  getRefreshToken(): string {
+    return localStorage.getItem(this.REFRESH_TOKEN_KEY) || ''
+  }
+}
+
+const tokenManager = new TokenManager()
+
+// 导出供外部使用的函数
 export function saveTokens(accessToken: string, refreshToken: string): void {
-  localStorage.setItem('accessToken', accessToken)
-  localStorage.setItem('refreshToken', refreshToken)
+  tokenManager.saveTokens(accessToken, refreshToken)
 }
 
 export function clearTokens(): void {
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refreshToken')
-  localStorage.removeItem('token')
-}
-
-function getAccessToken(): string {
-  return localStorage.getItem('accessToken') || localStorage.getItem('token') || ''
-}
-
-function getRefreshToken(): string {
-  return localStorage.getItem('refreshToken') || ''
+  tokenManager.clearTokens()
 }
 
 // ==================== 无感刷新 Token ====================
@@ -62,7 +98,7 @@ function onRefreshFailed(error: unknown) {
 // ==================== 请求拦截器 ====================
 
 http.interceptors.request.use((config) => {
-  const token = getAccessToken()
+  const token = tokenManager.getAccessToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -74,22 +110,29 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (res) => {
     // 后端统一返回 { code, message, data } 格式
-    const data = res.data as ApiEnvelope<unknown>
-    if (typeof data === 'object' && data !== null && 'code' in data && data.code !== 200) {
+    const data = res.data as ApiEnvelope
+    if (
+      typeof data === 'object' &&
+      data !== null &&
+      'code' in data &&
+      data.code !== 200
+    ) {
       return Promise.reject(new Error(data.message || '请求失败'))
     }
     return res
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean
+    }
 
     // 仅对 401 且未重试过的请求尝试刷新
     if (error.response?.status === 401 && !originalRequest._retry) {
-      const refreshToken = getRefreshToken()
+      const refreshToken = tokenManager.getRefreshToken()
 
       // 没有 refreshToken，直接清除并拒绝
       if (!refreshToken) {
-        clearTokens()
+        tokenManager.clearTokens()
         return Promise.reject(new Error('请先登录'))
       }
 
@@ -111,24 +154,26 @@ http.interceptors.response.use(
 
       try {
         // 用原生 axios 发起刷新请求，避免走拦截器循环
-        const { data } = await axios.post(
+        const { data } = await axios.post<ApiEnvelope<{
+          accessToken: string
+          refreshToken: string
+        }>>(
           `${http.defaults.baseURL}/auth/refreshToken`,
           { refreshToken },
           { headers: { 'Content-Type': 'application/json' } },
         )
 
-        const envelope = data as ApiEnvelope<{ accessToken: string; refreshToken: string }>
-        if (envelope.code !== 200 || !envelope.data?.accessToken) {
+        if (data.code !== 200 || !data.data?.accessToken) {
           throw new Error('刷新Token失败')
         }
 
-        saveTokens(envelope.data.accessToken, envelope.data.refreshToken || refreshToken)
-        onRefreshed(envelope.data.accessToken)
+        tokenManager.saveTokens(data.data.accessToken, data.data.refreshToken || refreshToken)
+        onRefreshed(data.data.accessToken)
 
-        originalRequest.headers.Authorization = `Bearer ${envelope.data.accessToken}`
+        originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`
         return http(originalRequest)
       } catch (refreshError) {
-        clearTokens()
+        tokenManager.clearTokens()
         onRefreshFailed(refreshError)
         return Promise.reject(new Error('登录已过期，请重新登录'))
       } finally {
@@ -137,37 +182,54 @@ http.interceptors.response.use(
     }
 
     // 非 401 错误，提取后端 message
+    const responseData = error.response?.data as ApiEnvelope | undefined
     const message =
-      (error.response?.data as ApiEnvelope<unknown>)?.message ||
+      responseData?.message ||
       `请求失败 (${error.response?.status || error.code})`
     return Promise.reject(new Error(message))
   },
 )
+
+// ==================== 辅助函数：构建查询参数 ====================
+
+/**
+ * 安全构建 URL 查询参数
+ */
+export function buildQueryString(params: Record<string, string | number | boolean | undefined>): string {
+  const searchParams = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) {
+      searchParams.set(key, String(value))
+    }
+  }
+  const query = searchParams.toString()
+  return query ? `?${query}` : ''
+}
 
 // ==================== 公开 API 方法 ====================
 
 /** GET 请求 */
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await http.get<ApiEnvelope<T>>(path)
-  return (res.data as ApiEnvelope<T>).data
+  return res.data.data
 }
 
 /** POST 请求（JSON body） */
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const res = await http.post<ApiEnvelope<T>>(path, body)
-  return (res.data as ApiEnvelope<T>).data
+  return res.data.data
 }
 
 /** PUT 请求（JSON body） */
 export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   const res = await http.put<ApiEnvelope<T>>(path, body)
-  return (res.data as ApiEnvelope<T>).data
+  return res.data.data
 }
 
 /** DELETE 请求 */
 export async function apiDelete<T>(path: string): Promise<T> {
   const res = await http.delete<ApiEnvelope<T>>(path)
-  return (res.data as ApiEnvelope<T>).data
+  return res.data.data
 }
 
 /** POST 请求（multipart/form-data，用于文件上传） */
@@ -175,5 +237,5 @@ export async function apiPostFormData<T>(path: string, formData: FormData): Prom
   const res = await http.post<ApiEnvelope<T>>(path, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
-  return (res.data as ApiEnvelope<T>).data
+  return res.data.data
 }

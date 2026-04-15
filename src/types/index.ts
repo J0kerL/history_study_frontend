@@ -1,3 +1,32 @@
+// ==================== 枚举定义 ====================
+
+/** 收藏类型：1-事件，2-人物 */
+export enum FavoriteType {
+  EVENT = 1,
+  FIGURE = 2,
+}
+
+/** 成就解锁条件类型 */
+export enum AchievementConditionType {
+  /** 连续登录 */
+  STREAK_LOGIN = 1,
+  /** 累计答题 */
+  TOTAL_QUIZ = 2,
+  /** 累计收藏 */
+  TOTAL_FAVORITES = 3,
+  /** 正确率 */
+  ACCURACY_RATE = 4,
+}
+
+/** 难度等级 */
+export type Difficulty = 1 | 2 | 3
+
+/** 答题类型 */
+export type QuizType = 1 | 2
+
+/** 事件/人物生成状态 */
+export type GenerationStatus = 'ready' | 'generating'
+
 // ==================== 通用分页结果 ====================
 
 export interface PageResult<T> {
@@ -17,7 +46,7 @@ export interface FavoriteVO {
   /** 收藏记录ID */
   id: number
   /** 收藏类型：1-事件，2-人物 */
-  type: number
+  type: FavoriteType
   /** 关联对象ID */
   refId: number
   /** 关联对象标题（事件）或姓名（人物） */
@@ -38,8 +67,8 @@ export interface Achievement {
   description: string
   /** 成就图标地址 */
   iconUrl: string
-  /** 解锁条件类型：1-连续登录，2-累计答题，3-累计收藏，4-正确率 */
-  conditionType: number
+  /** 解锁条件类型 */
+  conditionType: AchievementConditionType
   conditionValue: number
   /** 解锁时间，未解锁时为null */
   unlockedAt: string | null
@@ -89,7 +118,7 @@ export interface TodayEventsResponse {
   /** 事件列表 */
   events: EventSummaryVO[]
   /** 生成状态：ready=已就绪，generating=生成中 */
-  generationStatus: 'ready' | 'generating'
+  generationStatus: GenerationStatus
   /** 生成提示信息 */
   generationMessage?: string
 }
@@ -108,7 +137,7 @@ export interface EventDetailVO {
   source: number
   relatedEvents: EventSummaryVO[]
   /** 关联事件生成状态：ready=已就绪，generating=生成中 */
-  relatedEventsStatus?: 'ready' | 'generating'
+  relatedEventsStatus?: GenerationStatus
   /** 关联事件生成提示信息 */
   relatedEventsMessage?: string
 }
@@ -117,12 +146,12 @@ export interface EventDetailVO {
 export interface TodayQuiz {
   id: number
   question: string
-  quizType: number  // 1-单选，2-多选
+  quizType: QuizType
   optionA: string
   optionB: string
   optionC: string
   optionD: string
-  difficulty: number // 1-简单，2-中等，3-困难
+  difficulty: Difficulty
   answered: boolean
   // 已答时返回的详情字段
   correctOptions?: string   // 正确答案，如 "A" 或 "AB"
@@ -153,7 +182,7 @@ export interface QuizStats {
 export interface QuizHistory {
   answerDate: string
   question: string
-  quizType: number
+  quizType: QuizType
   correctOptions: string
   selectedOptions: string
   correct: boolean

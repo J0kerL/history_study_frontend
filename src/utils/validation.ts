@@ -1,11 +1,17 @@
 import { z } from 'zod'
+import {
+  MAX_USERNAME_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  MAX_PASSWORD_LENGTH,
+  PHONE_LENGTH,
+} from '../constants'
 
 /** 登录表单校验规则 */
 export const loginSchema = z.object({
   username: z
     .string()
     .min(1, '请输入用户名')
-    .max(20, '用户名不能超过 20 个字符'),
+    .max(MAX_USERNAME_LENGTH, `用户名不能超过 ${MAX_USERNAME_LENGTH} 个字符`),
   password: z
     .string()
     .min(1, '请输入密码'),
@@ -19,17 +25,17 @@ export const registerSchema = z
     username: z
       .string()
       .min(1, '请输入用户名')
-      .max(20, '用户名不能超过 20 个字符'),
+      .max(MAX_USERNAME_LENGTH, `用户名不能超过 ${MAX_USERNAME_LENGTH} 个字符`),
     password: z
       .string()
-      .min(6, '密码长度至少 6 个字符')
-      .max(20, '密码长度不能超过 20 个字符'),
+      .min(MIN_PASSWORD_LENGTH, `密码长度至少 ${MIN_PASSWORD_LENGTH} 个字符`)
+      .max(MAX_PASSWORD_LENGTH, `密码长度不能超过 ${MAX_PASSWORD_LENGTH} 个字符`),
     confirmPassword: z
       .string()
       .min(1, '请确认密码'),
     phone: z
       .string()
-      .regex(/^\d{11}$/, '请输入正确的 11 位手机号'),
+      .regex(/^\d{11}$/, `请输入正确的 ${PHONE_LENGTH} 位手机号`),
     verificationCode: z
       .string()
       .min(1, '请输入验证码'),
@@ -49,8 +55,8 @@ export const updatePasswordSchema = z
       .min(1, '请输入原密码'),
     newPassword: z
       .string()
-      .min(6, '密码长度至少 6 个字符')
-      .max(20, '密码长度不能超过 20 个字符'),
+      .min(MIN_PASSWORD_LENGTH, `密码长度至少 ${MIN_PASSWORD_LENGTH} 个字符`)
+      .max(MAX_PASSWORD_LENGTH, `密码长度不能超过 ${MAX_PASSWORD_LENGTH} 个字符`),
     confirmNewPassword: z
       .string()
       .min(1, '请确认新密码'),

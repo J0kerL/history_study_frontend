@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { getEventDetail } from '../api/event'
 import { useSSE } from './useSSE'
+import { handleError } from '../utils/errorHandler'
+import { SSE_RECONNECT_DELAY } from '../constants'
 import type { EventDetailVO } from '../types'
 
 export type RelatedEventsState = 'loading' | 'generating' | 'ready' | 'empty' | 'failed'
@@ -70,7 +72,7 @@ export function useEventDetail(id: number | undefined): UseEventDetailResult {
       })
       .catch((err) => {
         if (!mountedRef.current) return
-        console.error('[useEventDetail] 获取失败:', err)
+        handleError(err, 'useEventDetail')
         setRelatedState('failed')
         setSseEnabled(false)
       })
@@ -86,7 +88,7 @@ export function useEventDetail(id: number | undefined): UseEventDetailResult {
       setSseEnabled(false)
       setTimeout(() => {
         if (mountedRef.current) fetchDetail()
-      }, 300)
+      }, SSE_RECONNECT_DELAY)
     },
     'related-events-failed': () => {
       // 生成失败

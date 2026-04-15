@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, X, Clock, TrendingUp, BookOpen, User, LogIn } from 'lucide-react'
 import { search, getHotKeywords, getSearchHistory, clearSearchHistory } from '../api/search'
 import { useAuth } from '../contexts/AuthContext'
+import { handleError } from '../utils/errorHandler'
+import { SEARCH_DEBOUNCE_DELAY } from '../constants'
 import type { SearchResult, EventSummaryVO, FigureSearchVO } from '../types'
 
 const containerVariants = {
@@ -39,9 +41,13 @@ export default function SearchPage() {
 
   // 加载热词和搜索历史
   useEffect(() => {
-    getHotKeywords().then(setHotList).catch(() => {})
+    getHotKeywords().then(setHotList).catch((err) => {
+      handleError(err, 'getHotKeywords')
+    })
     if (isAuthenticated) {
-      getSearchHistory().then(setHistoryList).catch(() => {})
+      getSearchHistory().then(setHistoryList).catch((err) => {
+        handleError(err, 'getSearchHistory')
+      })
     }
   }, [isAuthenticated])
 
@@ -61,9 +67,12 @@ export default function SearchPage() {
     const timer = setTimeout(() => {
       search(query.trim())
         .then((data) => setResult(data))
-        .catch(() => setResult({ events: [], figures: [] }))
+        .catch((err) => {
+          handleError(err, 'search')
+          setResult({ events: [], figures: [] })
+        })
         .finally(() => setSearching(false))
-    }, 300)
+    }, SEARCH_DEBOUNCE_DELAY)
 
     return () => clearTimeout(timer)
   }, [query, isAuthenticated])
@@ -71,7 +80,9 @@ export default function SearchPage() {
   // 搜索后刷新历史
   useEffect(() => {
     if (query.trim() && isAuthenticated && result) {
-      getSearchHistory().then(setHistoryList).catch(() => {})
+      getSearchHistory().then(setHistoryList).catch((err) => {
+        handleError(err, 'getSearchHistory')
+      })
     }
   }, [result, isAuthenticated])
 
@@ -95,7 +106,9 @@ export default function SearchPage() {
     try {
       await clearSearchHistory()
       setHistoryList([])
-    } catch {}
+    } catch (err) {
+      handleError(err, 'clearSearchHistory')
+    }
   }
 
   return (
@@ -266,7 +279,7 @@ export default function SearchPage() {
                     </div>
                     <div className="space-y-3">
                       {result.figures.map((figure) => (
-                        <FigureCard key={figure.id} figure={figure} onClick={() => navigate(`/recommendation`)} />
+                        <FigureCard key={figure.id} figure={figure} onClick={() => navigate(`/figure/${figure.id}`)} />
                       ))}
                     </div>
                   </section>
@@ -356,6 +369,7 @@ function EventCard({ event, onClick }: { event: EventSummaryVO; onClick: () => v
             src={event.imageUrl}
             alt={event.title}
             className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+            loading="lazy"
           />
         )}
         <div className="flex-1 min-w-0">
@@ -390,6 +404,7 @@ function FigureCard({ figure, onClick }: { figure: FigureSearchVO; onClick: () =
             src={figure.imageUrl}
             alt={figure.name}
             className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+            loading="lazy"
           />
         )}
         {!figure.imageUrl && (

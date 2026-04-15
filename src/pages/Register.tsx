@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, ArrowLeft, User, Lock, Phone, ShieldCheck, CheckCircle2, MessageSquare, Copy, Check } from 'lucide-react'
@@ -7,6 +7,15 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { sendVerificationCode } from '../api/auth'
 import { useAuth } from '../contexts/AuthContext'
 import { registerSchema, type RegisterFormData } from '../utils/validation'
+import { handleError } from '../utils/errorHandler'
+import {
+  MAX_USERNAME_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  MAX_PASSWORD_LENGTH,
+  PHONE_LENGTH,
+  VERIFICATION_CODE_LENGTH,
+  VERIFICATION_CODE_COUNTDOWN,
+} from '../constants'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -51,6 +60,15 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
+  // 组件卸载时清理定时器，防止内存泄漏
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [])
+
   /** 发送验证码 */
   async function handleSendCode() {
     clearErrors('phone')
@@ -65,7 +83,7 @@ export default function Register() {
         code: result['验证码为'],
         expireMin: Math.round(result['过期时间'] / 60),
       })
-      setCountdown(60)
+      setCountdown(VERIFICATION_CODE_COUNTDOWN)
       timerRef.current = setInterval(() => {
         setCountdown((c) => {
           if (c <= 1) {
@@ -76,6 +94,7 @@ export default function Register() {
         })
       }, 1000)
     } catch (err) {
+      handleError(err, 'sendVerificationCode')
       setError('phone', {
         message: err instanceof Error ? err.message : '发送失败，请稍后重试',
       })
@@ -96,6 +115,7 @@ export default function Register() {
       })
       setSuccessModal(true)
     } catch (err) {
+      handleError(err, 'register')
       const message = err instanceof Error ? err.message : '注册失败，请稍后重试'
       setError('root', { message })
     }
@@ -160,10 +180,10 @@ export default function Register() {
             <User size={18} className="text-ink-lighter shrink-0" />
             <input
               type="text"
-              placeholder="用户名（1-20 个字符）"
+              placeholder={`用户名（1-${MAX_USERNAME_LENGTH} 个字符）`}
               {...register('username')}
               autoComplete="username"
-              maxLength={20}
+              maxLength={MAX_USERNAME_LENGTH}
               className={`flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none ${
                 errors.username ? 'text-vermillion' : ''
               }`}
@@ -178,10 +198,10 @@ export default function Register() {
             <Lock size={18} className="text-ink-lighter shrink-0" />
             <input
               type={showPassword ? 'text' : 'password'}
-              placeholder="密码（6-20 个字符）"
+              placeholder={`密码（${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} 个字符）`}
               {...register('password')}
               autoComplete="new-password"
-              maxLength={20}
+              maxLength={MAX_PASSWORD_LENGTH}
               className={`flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none ${
                 errors.password ? 'text-vermillion' : ''
               }`}
@@ -207,7 +227,7 @@ export default function Register() {
               placeholder="确认密码"
               {...register('confirmPassword')}
               autoComplete="new-password"
-              maxLength={20}
+              maxLength={MAX_PASSWORD_LENGTH}
               className={`flex-1 py-4 bg-transparent text-ink placeholder-ink-lighter text-sm outline-none ${
                 errors.confirmPassword ? 'text-vermillion' : ''
               }`}
@@ -233,7 +253,7 @@ export default function Register() {
               placeholder="手机号"
               {...register('phone', {
                 onChange: (e) => {
-                  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11)
+                  e.target.value = e.target.value.replace(/\D/g, '').slice(0, PHONE_LENGTH)
                 },
               })}
               autoComplete="tel"
@@ -263,7 +283,7 @@ export default function Register() {
               placeholder="短信验证码"
               {...register('verificationCode', {
                 onChange: (e) => {
-                  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6)
+                  e.target.value = e.target.value.replace(/\D/g, '').slice(0, VERIFICATION_CODE_LENGTH)
                 },
               })}
               inputMode="numeric"

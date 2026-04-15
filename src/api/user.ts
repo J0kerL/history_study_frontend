@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiPostFormData } from './client'
+import { apiGet, apiPost, apiPut, apiPostFormData, buildQueryString } from './client'
 import type { CurrentUser, PageResult, FavoriteVO, Achievement } from '../types'
 
 /** 获取当前登录用户信息 */
@@ -8,19 +8,21 @@ export function getCurrentUser() {
 
 /** 分页查询用户收藏列表，type: 1=事件, 2=人物（不传则查全部） */
 export function getFavorites(params: { pageNum?: number; pageSize?: number; type?: number }) {
-  const query = new URLSearchParams()
-  if (params.pageNum != null) query.set('pageNum', String(params.pageNum))
-  if (params.pageSize != null) query.set('pageSize', String(params.pageSize))
-  if (params.type != null) query.set('type', String(params.type))
-  return apiGet<PageResult<FavoriteVO>>(`/user/favorites?${query.toString()}`)
+  const query = buildQueryString({
+    pageNum: params.pageNum ?? 1,
+    pageSize: params.pageSize ?? 10,
+    type: params.type,
+  })
+  return apiGet<PageResult<FavoriteVO>>(`/user/favorites${query}`)
 }
 
 /** 分页查询用户成就列表 */
 export function getAchievements(params: { pageNum?: number; pageSize?: number }) {
-  const query = new URLSearchParams()
-  if (params.pageNum != null) query.set('pageNum', String(params.pageNum))
-  if (params.pageSize != null) query.set('pageSize', String(params.pageSize))
-  return apiGet<PageResult<Achievement>>(`/user/achievements?${query.toString()}`)
+  const query = buildQueryString({
+    pageNum: params.pageNum ?? 1,
+    pageSize: params.pageSize ?? 10,
+  })
+  return apiGet<PageResult<Achievement>>(`/user/achievements${query}`)
 }
 
 /** 获取已解锁成就数量 */
@@ -40,10 +42,8 @@ export function updatePassword(data: { oldPassword: string; newPassword: string;
 
 /** 查询当前用户是否已收藏指定资源，type: 1=事件, 2=人物 */
 export function hasFavorite(type: number, refId: number) {
-  const query = new URLSearchParams()
-  query.set('type', String(type))
-  query.set('refId', String(refId))
-  return apiGet<boolean>(`/favorite/status?${query.toString()}`)
+  const query = buildQueryString({ type, refId })
+  return apiGet<boolean>(`/favorite/status${query}`)
 }
 
 /** 取消收藏，type: 1=事件, 2=人物 */

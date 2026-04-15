@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, XCircle, Flame, Target, BookOpen, LogIn, X } from 'lucide-react'
 import { getTodayQuiz, submitAnswer, getQuizStats } from '../api/quiz'
 import { useAuth } from '../contexts/AuthContext'
+import { handleError } from '../utils/errorHandler'
 import type { TodayQuiz, QuizStats as QuizStatsType, QuizOption } from '../types'
 
 const containerVariants = {
@@ -79,7 +80,7 @@ export default function Quiz() {
           setIsCorrect(state.isCorrect)
           submitted.current = true
         }
-      } catch (e) {
+      } catch {
         // 忽略解析错误
       }
     }
@@ -88,8 +89,14 @@ export default function Quiz() {
   useEffect(() => {
     // 支持匿名访问：未登录也能获取题目和默认统计
     Promise.all([
-      getTodayQuiz().catch(() => null),
-      getQuizStats().catch(() => null),
+      getTodayQuiz().catch((err) => {
+        handleError(err, 'getTodayQuiz')
+        return null
+      }),
+      getQuizStats().catch((err) => {
+        handleError(err, 'getQuizStats')
+        return null
+      }),
     ]).then(([q, s]) => {
       if (q) {
         setQuiz(q)
@@ -146,8 +153,9 @@ export default function Quiz() {
       setExplanation(result.explanation)
       setIsCorrect(result.correct)
       // 刷新统计
-      getQuizStats().then(setStats).catch(() => {})
+      getQuizStats().then(setStats).catch((err) => handleError(err, 'getQuizStats'))
     } catch (e: unknown) {
+      handleError(e, 'submitAnswer')
       setError(e instanceof Error ? e.message : '提交答案失败')
     }
   }
@@ -157,7 +165,7 @@ export default function Quiz() {
     const correctLabel = correctOptions // e.g. "A" or "AB"
     const isCorrectOption = correctLabel.includes(options.find(o => o.id === optionId)?.label || '')
 
-    let baseClasses = 'w-full p-5 rounded-2xl border-2 flex items-center justify-between transition-all duration-200'
+    const baseClasses = 'w-full p-5 rounded-2xl border-2 flex items-center justify-between transition-all duration-200'
     let stateClasses = ''
 
     if (!isAnswered) {

@@ -7,8 +7,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { useFavorites, loadFavoriteStatus } from '../contexts/FavoritesContext'
 import Toast, { useToast } from '../components/Toast'
 import AvatarPreview from '../components/AvatarPreview'
-import { useEventDetail } from '../hooks/useEventDetailPolling'
+import { useEventDetail } from '../hooks/useEventDetail'
 import { recordLearningAction, LearningActionType } from '../api/learning'
+import { handleError } from '../utils/errorHandler'
 
 const contentVariants = {
   hidden: { opacity: 0 },
@@ -48,7 +49,8 @@ export default function EventDetail() {
   // 记录阅读详情行为
   useEffect(() => {
     if (isAuthenticated && event) {
-      recordLearningAction(LearningActionType.READ_DETAIL).catch(() => {
+      recordLearningAction(LearningActionType.READ_DETAIL).catch((err) => {
+        handleError(err, 'recordLearningAction')
         // 静默失败
       })
     }
@@ -163,6 +165,7 @@ export default function EventDetail() {
                 alt={event.title}
                 className="w-full h-full object-cover cursor-pointer"
                 onClick={() => setPreviewOpen(true)}
+                loading="lazy"
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-b from-vermillion/15 to-paper-100" />

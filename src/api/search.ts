@@ -1,9 +1,10 @@
-import { apiGet, apiDelete } from './client'
-import type { SearchResult, SearchHotKeyword } from '../types'
+import { apiGet, apiDelete, buildQueryString } from './client'
+import type { SearchResult } from '../types'
 
 /** 搜索事件和人物 */
 export function search(keyword: string) {
-  return apiGet<SearchResult>(`/search?keyword=${encodeURIComponent(keyword)}`)
+  const query = buildQueryString({ keyword })
+  return apiGet<SearchResult>(`/search${query}`)
 }
 
 /** 获取热门搜索词 */
