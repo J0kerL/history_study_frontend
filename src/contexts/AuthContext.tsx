@@ -26,9 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
   })
 
-  // 初始化：检查 localStorage 中是否有 token，有则获取用户信息
+  // 初始化：检查是否有 token，有则获取用户信息
   useEffect(() => {
-    const token = localStorage.getItem('accessToken') || localStorage.getItem('token')
+    // 兼容多种存储位置：sessionStorage、localStorage
+    const token = 
+      sessionStorage.getItem('accessToken') || 
+      localStorage.getItem('accessToken') || 
+      localStorage.getItem('token')
     if (!token) {
       setState({ user: null, isAuthenticated: false, isLoading: false })
       return
